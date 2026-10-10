@@ -23,11 +23,11 @@ class MainActivity : Activity() {
             setPadding(pad, pad, pad, pad)
         }
         layout.addView(TextView(this).apply {
-            text = "Viaje Rentable 1.6\nDiagnóstico de accesibilidad"
+            text = "Viaje Rentable 1.6\\nCaptura de ofertas por accesibilidad"
             textSize = 23f
         })
         layout.addView(TextView(this).apply {
-            text = "Diagnóstico privado: comprueba si Uber Driver expone texto accesible, pero no guarda el contenido de la pantalla, direcciones ni datos de viajes. No acepta viajes ni pulsa botones."
+            text = "Lee texto que Uber Driver expone a accesibilidad y guarda localmente cambios que parecen ofertas. No pulsa botones ni acepta/rechaza viajes. El registro puede contener detalles visibles de una oferta; se conserva solo en este dispositivo y puedes borrarlo aquí."
             textSize = 16f
             setPadding(0, pad, 0, pad)
         })
@@ -51,10 +51,15 @@ class MainActivity : Activity() {
         refreshLog()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::logView.isInitialized) refreshLog()
+    }
+
     private fun refreshLog() {
         val manager = getSystemService(ACCESSIBILITY_SERVICE) as AccessibilityManager
         val enabled = manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
             .any { it.id?.contains(packageName) == true }
-        logView.text = "Servicio habilitado: $enabled\n\n" + LogStore.read(this)
+        logView.text = "Servicio habilitado: $enabled\\n\\n" + LogStore.read(this)
     }
 }
