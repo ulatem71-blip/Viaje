@@ -9,35 +9,59 @@ class OfferAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        LogStore.add(this, "SERVICIO CONECTADO")
+        // Remove previous diagnostic entries, which may contain screen text.
+        LogStore.clear(this)
+        LogStore.add(this, "SERVICIO CONECTADO; registro seguro activado")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-        if (event.packageName?.toString() != "com.ubercab.driver") return
+        val packageName = event.packageName?.toString() ?: return
+        if (packageName != "com.ubercab.driver") return
+
         val now = System.currentTimeMillis()
         if (now - lastLogged < 1000) return
         lastLogged = now
-        val root = rootInActiveWindow ?: return
-        val lines = mutableListOf<String>()
-        collectText(root, lines, 0)
-        root.recycle()
-        val content = lines.distinct().filter { it.isNotBlank() }.take(80)
-        if (content.isNotEmpty()) {
-            LogStore.add(this, "UBER DETECTADO: " + content.joinToString(" | "))
-        } else {
-            LogStore.add(this, "UBER DETECTADO: ventana sin texto legible")
+
+        val root = rootInActiveWindow
+        if (root == null) {
+            LogStore.add(this, "UBER DETECTADO; ventana activa no disponible")
+            return
         }
+
+        val stats = TextStats()
+        try {
+            inspectTree(root, stats, 0)
+        } finally {
+            root.recycle()
+        }
+
+        // Never store the actual text, labels, addresses, or trip details.
+        LogStore.add(
+            this,
+            "UBER DETECTADO; evento=${event.eventType}; nodos=${stats.nodes}; " +
+                "nodosConTexto=${stats.nodesWithText}; textoAccesible=${stats.nodesWithText > 0}"
+        )
     }
 
-    private fun collectText(node: AccessibilityNodeInfo, out: MutableList<String>, depth: Int) {
+    private fun inspectTree(
+        node: AccessibilityNodeInfo,
+        stats: TextStats,
+        depth: Int
+    ) {
         if (depth > 18) return
-        node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
-        node.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
+        stats.nodes++
+        val hasText = !node.text.isNullOrBlank() ||
+            !node.contentDescription.isNullOrBlank()
+        if (hasText) stats.nodesWithText++
+
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
-            collectText(child, out, depth + 1)
-            child.recycle()
+            try {
+                inspectTree(child, stats, depth + 1)
+            } finally {
+                child.recycle()
+            }
         }
     }
 
@@ -48,5 +72,10 @@ class OfferAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         LogStore.add(this, "SERVICIO DESCONECTADO")
         super.onDestroy()
+    }
+
+    private class TextStats {
+        var nodes: Int = 0
+        var nodesWithText: Int = 0
     }
 }
