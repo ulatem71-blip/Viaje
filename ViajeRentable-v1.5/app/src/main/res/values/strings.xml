@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Viaje Rentable</string>
+    <string name="accessibility_description">Diagnóstico de texto visible para Viaje Rentable. No pulsa botones ni acepta viajes.</string>
+</resources>

@@ -1,0 +1,44 @@
+package com.viajerentable.app
+
+data class Offer(
+    val fare: Double,
+    val pickupKm: Double,
+    val pickupMinutes: Double,
+    val tripKm: Double,
+    val tripMinutes: Double
+)
+
+data class DriverCosts(
+    val kmPerLiter: Double = 18.0,
+    val fuelPricePerLiter: Double = 720.0,
+    val maintenancePerKm: Double = 25.0,
+    val minimumNetPerHour: Double = 2500.0,
+    val minimumNetPerKm: Double = 250.0
+)
+
+data class ProfitResult(
+    val totalKm: Double,
+    val totalMinutes: Double,
+    val fuelCost: Double,
+    val maintenanceCost: Double,
+    val net: Double,
+    val netPerKm: Double,
+    val netPerHour: Double,
+    val recommended: Boolean
+)
+
+object Profitability {
+    fun calculate(offer: Offer, costs: DriverCosts): ProfitResult {
+        require(offer.fare >= 0 && offer.pickupKm >= 0 && offer.tripKm >= 0)
+        require(costs.kmPerLiter > 0 && costs.fuelPricePerLiter >= 0 && costs.maintenancePerKm >= 0)
+        val km = offer.pickupKm + offer.tripKm
+        val minutes = offer.pickupMinutes + offer.tripMinutes
+        val fuel = km / costs.kmPerLiter * costs.fuelPricePerLiter
+        val maintenance = km * costs.maintenancePerKm
+        val net = offer.fare - fuel - maintenance
+        val perKm = if (km > 0) net / km else 0.0
+        val perHour = if (minutes > 0) net / (minutes / 60.0) else 0.0
+        return ProfitResult(km, minutes, fuel, maintenance, net, perKm, perHour,
+            net >= 0 && perKm >= costs.minimumNetPerKm && perHour >= costs.minimumNetPerHour)
+    }
+}
