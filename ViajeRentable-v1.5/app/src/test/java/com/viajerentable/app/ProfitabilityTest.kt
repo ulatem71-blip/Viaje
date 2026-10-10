@@ -7,7 +7,7 @@ import org.junit.Test
 class ProfitabilityTest {
     @Test fun calculatesOfferAndRejectsLowHourlyReturn() {
         val result = Profitability.calculate(
-            Offer(3200.0, 1.8, 5.0, 6.3, 12.0),
+            Offer(3200.0, 1.8, 5.0, 6.3, 60.0),
             DriverCosts(kmPerLiter = 18.0, fuelPricePerLiter = 720.0, maintenancePerKm = 25.0)
         )
         assertEquals(8.1, result.totalKm, 0.001)
