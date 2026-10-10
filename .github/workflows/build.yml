@@ -1,4 +1,3 @@
-
 name: Android build
 
 on:
@@ -18,9 +17,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build release APK
+      - name: Build installable debug APK
         working-directory: ViajeRentable-v1.5
-        run: gradle assembleRelease
+        run: gradle assembleDebug
 
       - name: Run unit tests
         working-directory: ViajeRentable-v1.5
@@ -29,4 +28,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ViajeRentable-apk
-          path: ViajeRentable-v1.5/**/build/outputs/**/*.apk
+          path: ViajeRentable-v1.5/app/build/outputs/apk/debug/app-debug.apk
