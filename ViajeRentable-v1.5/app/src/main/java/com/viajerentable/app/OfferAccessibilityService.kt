@@ -8,9 +8,9 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Reads only text exposed by Uber Driver's accessibility tree.
- * It never clicks controls, accepts/declines trips, or changes Uber's state.
- * Offer text is kept locally in the app's private preferences.
+ * Reads text exposed by Uber Driver's accessibility tree.
+ * It never clicks controls or accepts/declines trips. Candidate offer text is
+ * stored only in this app's private local log.
  */
 class OfferAccessibilityService : AccessibilityService() {
     private var lastDiagnosticAt = 0L
@@ -19,13 +19,12 @@ class OfferAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        LogStore.add(this, "SERVICIO CONECTADO; lectura local de ofertas habilitada")
+        LogStore.add(this, "SERVICIO CONECTADO; captura local de texto candidato habilitada")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-        val packageName = event.packageName?.toString() ?: return
-        if (packageName != UBER_DRIVER_PACKAGE) return
+        if (event.packageName?.toString() != UBER_DRIVER_PACKAGE) return
 
         val root = rootInActiveWindow
         if (root == null) {
@@ -33,44 +32,35 @@ class OfferAccessibilityService : AccessibilityService() {
             return
         }
 
-        val texts = mutableListOf<String>()
-        var nodeCount = 0
-        var textNodeCount = 0
         try {
-            collectText(root, texts, Counter(), 0)
-            // Normalize duplicates and whitespace, but preserve readable text values.
+            val texts = mutableListOf<String>()
+            val counter = Counter()
+            collectText(root, texts, counter, 0)
             val normalized = texts.map { it.replace(Regex("\\s+"), " ").trim() }
                 .filter { it.isNotEmpty() }
                 .distinct()
-            nodeCount = countNodes(root, 0)
-            textNodeCount = normalized.size
             val treeText = normalized.joinToString(" | ")
             val fingerprint = treeText.hashCode().toString()
 
-            // The tree may emit many content-changed events for the same screen.
-            // Log only when its accessible text actually changes.
             if (treeText.isNotBlank() && fingerprint != lastTreeFingerprint) {
                 lastTreeFingerprint = fingerprint
-                val likelyOffer = isOfferLike(treeText)
-                if (likelyOffer) {
-                    if (fingerprint != lastOfferFingerprint) {
-                        lastOfferFingerprint = fingerprint
-                        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                            .format(Date())
-                        LogStore.add(this, "OFERTA/TEXTO CAMBIADO [$timestamp]\n$treeText")
-                    }
-                } else {
-                    addDiagnostic("UBER DETECTADO; cambio de pantalla sin señal clara de oferta")
+                if (isOfferLike(treeText) && fingerprint != lastOfferFingerprint) {
+                    lastOfferFingerprint = fingerprint
+                    val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                        .format(Date())
+                    LogStore.add(this, "OFERTA CANDIDATA [$timestamp]\n$treeText")
+                } else if (!isOfferLike(treeText)) {
+                    addDiagnostic("UBER DETECTADO; texto cambió, sin señales suficientes de oferta")
                 }
             }
 
             val now = System.currentTimeMillis()
-            if (now - lastDiagnosticAt >= 5000) {
+            if (now - lastDiagnosticAt >= DIAGNOSTIC_INTERVAL_MS) {
                 lastDiagnosticAt = now
                 addDiagnostic(
-                    "UBER DETECTADO; evento=${event.eventType}; nodos=$nodeCount; " +
-                        "nodosConTexto=$textNodeCount; textoAccesible=${textNodeCount > 0}; " +
-                        "ofertaProbable=${isOfferLike(normalized.joinToString(" "))}"
+                    "UBER DETECTADO; evento=${event.eventType}; nodos=${counter.nodes}; " +
+                        "nodosConTexto=${normalized.size}; textoAccesible=${normalized.isNotEmpty()}; " +
+                        "ofertaProbable=${isOfferLike(treeText)}"
                 )
             }
         } catch (e: Exception) {
@@ -102,36 +92,19 @@ class OfferAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun countNodes(node: AccessibilityNodeInfo, depth: Int): Int {
-        if (depth > MAX_TREE_DEPTH) return 0
-        var count = 1
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            try {
-                count += countNodes(child, depth + 1)
-            } finally {
-                child.recycle()
-            }
-            if (count >= MAX_NODES) return MAX_NODES
-        }
-        return count
-    }
-
     private fun isOfferLike(text: String): Boolean {
         val value = text.lowercase(Locale.ROOT)
-        val hasMoney = value.contains("crc") || value.contains("₡") ||
-            Regex("""(?:\\$|\\b\d[\d.,]*\\s*(?:colones|crc)\\b)""").containsMatchIn(value)
+        val hasCurrency = value.contains("crc") || value.contains("₡") ||
+            value.contains("colones") || Regex("""\$\s*\d""").containsMatchIn(value)
         val hasTripSignal = listOf(
-            "km", "kilómetro", "kilometro", "min", "minuto", "viaje",
+            " km", "kilómetro", "kilometro", "min.", " minutos", " minuto",
             "recogida", "destino", "ganancia", "oferta", "por completar",
             "por adelantado", "uberx", "uber comfort"
         ).any { value.contains(it) }
-        return hasMoney && hasTripSignal
+        return hasCurrency && hasTripSignal
     }
 
-    private fun addDiagnostic(message: String) {
-        LogStore.add(this, message)
-    }
+    private fun addDiagnostic(message: String) = LogStore.add(this, message)
 
     override fun onInterrupt() {
         LogStore.add(this, "SERVICIO INTERRUMPIDO")
@@ -148,5 +121,6 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
         private const val MAX_TREE_DEPTH = 18
         private const val MAX_NODES = 500
+        private const val DIAGNOSTIC_INTERVAL_MS = 5000L
     }
 }
