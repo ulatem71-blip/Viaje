@@ -72,12 +72,12 @@ class OfferAccessibilityService : AccessibilityService() {
     }
 
     private fun parseOffer(text: String): ParsedOffer? {
-        val fareMatch = Regex("""(?:CRC\\s*|₡\\s*|\\$\\s*)([0-9][0-9,]*(?:\\.[0-9]{1,2})?)""",
+        val fareMatch = Regex("""(?:CRC\s*|₡\s*|\$\s*)([0-9][0-9,]*(?:\.[0-9]{1,2})?)""",
             RegexOption.IGNORE_CASE).find(text) ?: return null
         val fare = fareMatch.groupValues[1].replace(",", "").toDoubleOrNull() ?: return null
-        val kmValues = Regex("""([0-9]+(?:[.,][0-9]+)?)\\s*km""", RegexOption.IGNORE_CASE)
+        val kmValues = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*km""", RegexOption.IGNORE_CASE)
             .findAll(text).mapNotNull { it.groupValues[1].replace(",", ".").toDoubleOrNull() }.toList()
-        val minuteValues = Regex("""([0-9]{1,3})\\s*min(?:uto)?s?\\b""", RegexOption.IGNORE_CASE)
+        val minuteValues = Regex("""([0-9]{1,3})\s*min(?:uto)?s?\b""", RegexOption.IGNORE_CASE)
             .findAll(text).mapNotNull { it.groupValues[1].toDoubleOrNull() }.toList()
         if (kmValues.size < 2 || minuteValues.size < 2) return null
         val offer = ParsedOffer(fare, kmValues[0], minuteValues[0], kmValues[1], minuteValues[1])
