@@ -11,16 +11,20 @@ import java.io.File
 import java.util.Locale
 class MainActivity:Activity(){
  private lateinit var status:TextView;private lateinit var screen:TextView;private lateinit var trips:TextView;private lateinit var offers:TextView;private lateinit var reason:EditText;private lateinit var logs:TextView
- private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText
+ private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText;private lateinit var demoSwitch:Switch;private lateinit var simulationInput:EditText;private lateinit var simulationOutput:TextView
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val pad=(16*resources.displayMetrics.density).toInt();val c=LinearLayout(this).apply{orientation=1;setPadding(pad,pad,pad,pad)}
- c.addView(TextView(this).apply{text="Viaje Rentable 1.12";textSize=25f});status=TextView(this);c.addView(status)
+ c.addView(TextView(this).apply{text="Viaje Rentable 1.13";textSize=25f});status=TextView(this);c.addView(status)
  c.addView(Button(this).apply{text="Abrir ajustes de accesibilidad";setOnClickListener{startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))}})
  c.addView(Button(this).apply{text="Actualizar datos de Uber";setOnClickListener{refresh()}})
  c.addView(title("Última pantalla de Uber"));c.addView(TextView(this).apply{text="Texto accesible de Uber, no una captura de imagen."});screen=TextView(this).apply{setTextIsSelectable(true)};c.addView(screen)
  c.addView(title("Guardar viaje aceptado"));reason=EditText(this).apply{hint="Motivo de aceptación";minLines=2};c.addView(reason)
  c.addView(Button(this).apply{text="Guardar como viaje aceptado";setOnClickListener{if(AcceptedTripStore.add(this@MainActivity,reason.text.toString(),AcceptedTripStore.latestScreen(this@MainActivity))){reason.setText("");refresh();status.text=status.text.toString()+"\nViaje guardado localmente."}else status.text="No hay texto de Uber guardado todavía."}})
  c.addView(title("Viajes aceptados guardados"));trips=TextView(this).apply{setTextIsSelectable(true)};c.addView(trips);c.addView(Button(this).apply{text="Borrar viajes aceptados";setOnClickListener{AcceptedTripStore.clear(this@MainActivity);refresh()}})
+ c.addView(title("Modo demo"));demoSwitch=Switch(this).apply{text="Modo demo";isChecked=DemoModeStore.isEnabled(this@MainActivity);setOnCheckedChangeListener{_,checked->DemoModeStore.setEnabled(this@MainActivity,checked);refresh()}};c.addView(demoSwitch);c.addView(TextView(this).apply{text="Solo simula: no acepta ni rechaza viajes en Uber"})
  c.addView(title("Ofertas registradas"));offers=TextView(this).apply{setTextIsSelectable(true)};c.addView(offers);c.addView(Button(this).apply{text="Exportar CSV";setOnClickListener{exportCsv()}})
+ c.addView(title("Simular oferta"));simulationInput=EditText(this).apply{hint="Pega aquí el texto de una oferta";minLines=4;maxLines=8;gravity=android.view.Gravity.TOP;inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE};c.addView(simulationInput)
+ c.addView(Button(this).apply{text="Usar ejemplo";setOnClickListener{simulationInput.setText("UberX | CRC1,404.33 | A 7 min (1.4 km) | Viaje: 10 min (2.7 km) | Aceptar");simulationOutput.text=""}})
+ c.addView(Button(this).apply{text="Simular";setOnClickListener{simulateOffer()}});simulationOutput=TextView(this).apply{setTextIsSelectable(true)};c.addView(simulationOutput)
  c.addView(title("Costos configurables"));kmL=input(c,"kmPerLiter","18");fuel=input(c,"fuelPricePerLiter","720");maint=input(c,"maintenancePerKm","25");hour=input(c,"minimumNetPerHour","2500");km=input(c,"minimumNetPerKm","250")
  c.addView(Button(this).apply{text="Guardar costos";setOnClickListener{saveCosts()}})
  c.addView(title("Diagnóstico de captura"));logs=TextView(this).apply{setTextIsSelectable(true)};c.addView(logs);c.addView(Button(this).apply{text="Borrar diagnósticos";setOnClickListener{LogStore.clear(this@MainActivity);refresh()}})
@@ -31,10 +35,29 @@ class MainActivity:Activity(){
  private fun loadCosts(){val x=DriverCostsStore.read(this);kmL.setText(x.kmPerLiter.toString());fuel.setText(x.fuelPricePerLiter.toString());maint.setText(x.maintenancePerKm.toString());hour.setText(x.minimumNetPerHour.toString());km.setText(x.minimumNetPerKm.toString())}
  private fun saveCosts(){val a=kmL.text.toString().toDoubleOrNull();val b=fuel.text.toString().toDoubleOrNull();val d=maint.text.toString().toDoubleOrNull();val e=hour.text.toString().toDoubleOrNull();val f=km.text.toString().toDoubleOrNull()
  if(a==null||a<=0||b==null||b<0||d==null||d<0||e==null||e<0||f==null||f<0){status.text="Valores inválidos; km/l debe ser > 0 y los demás no negativos.";return};DriverCostsStore.save(this,DriverCosts(a,b,d,e,f));status.text="Costos guardados para los próximos cálculos."}
+ private fun simulateOffer(){
+  val parsed=OfferParser.parse(simulationInput.text.toString())
+  if(parsed==null){simulationOutput.text="No se detectó una oferta válida. Incluye tarifa y el texto Aceptar o Me interesa.";return}
+  val costs=readCostsFromFields()
+  if(costs==null){simulationOutput.text="Revisa los costos configurables antes de simular.";return}
+  if(!parsed.hasRouteDetails){
+   val demo=DemoDecision.evaluate(parsed,null,costs)
+   simulationOutput.text="Tarifa: ₡${fmt(parsed.fare)}\nNeto: sin datos\nNeto/km: sin datos\nNeto/hora: sin datos\nDecisión demo: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
+   return
+  }
+  val result=Profitability.calculate(Offer(parsed.fare,parsed.pickupKm!!,parsed.pickupMinutes!!,parsed.tripKm!!,parsed.tripMinutes!!),costs)
+  val demo=DemoDecision.evaluate(parsed,result,costs)
+  simulationOutput.text="Tarifa: ₡${fmt(parsed.fare)}\nNeto: ₡${fmt(result.net)}\nNeto/km: ₡${fmt(result.netPerKm)}\nNeto/hora: ₡${fmt(result.netPerHour)}\nDecisión demo: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
+ }
+ private fun readCostsFromFields():DriverCosts?{
+  val a=kmL.text.toString().toDoubleOrNull();val b=fuel.text.toString().toDoubleOrNull();val d=maint.text.toString().toDoubleOrNull();val e=hour.text.toString().toDoubleOrNull();val f=km.text.toString().toDoubleOrNull()
+  if(a==null||a<=0||b==null||b<0||d==null||d<0||e==null||e<0||f==null||f<0)return null
+  return DriverCosts(a,b,d,e,f)
+ }
  private fun exportCsv(){val file=File(cacheDir,"ofertas_viaje_rentable.csv");file.writeText(OffersStore.csv(this),Charsets.UTF_8);val uri=FileProvider.getUriForFile(this,"com.viajerentable.app.fileprovider",file);val i=Intent(Intent.ACTION_SEND).apply{type="text/csv";putExtra(Intent.EXTRA_SUBJECT,"Ofertas registradas");putExtra(Intent.EXTRA_STREAM,uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)};startActivity(Intent.createChooser(i,"Compartir CSV"))}
  private fun refresh(){val m=getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager;val enabled=m.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any{it.id?.contains(packageName)==true};status.text="Servicio de accesibilidad habilitado: $enabled"
  screen.text=AcceptedTripStore.latestScreen(this).ifBlank{"Todavía no hay texto capturado. Abre Uber Driver y deja los datos visibles."};trips.text=AcceptedTripStore.read(this)
- offers.text=OffersStore.read(this).joinToString("\n\n"){x->val p=x.parsed;val r=x.result;"${x.timestamp} | ${if(p.hasRouteDetails)"OFERTA DETALLADA" else "OFERTA COMPACTA"}\nTarifa ₡${fmt(p.fare)}; recogida ${p.pickupKm?.let{fmt(it)+" km / "+fmt(p.pickupMinutes!!)+" min"}?:"pendiente"}; viaje ${p.tripKm?.let{fmt(it)+" km / "+fmt(p.tripMinutes!!)+" min"}?:"pendiente"}\n"+(r?.let{"Neto ₡${fmt(it.net)}; ₡/km ${fmt(it.netPerKm)}; ₡/hora ${fmt(it.netPerHour)}; recomendado=${it.recommended}"}?:"Rentabilidad pendiente")}.ifBlank{"Todavía no hay ofertas registradas."}
+ offers.text=OffersStore.read(this).joinToString("\n\n"){x->val p=x.parsed;val r=x.result;val d=x.decision?.let{"\nDemo: $it; motivos: ${x.reasons.joinToString("; ")}"}?:"";"${x.timestamp} | ${if(p.hasRouteDetails)"OFERTA DETALLADA" else "OFERTA COMPACTA"}\nTarifa ₡${fmt(p.fare)}; recogida ${p.pickupKm?.let{fmt(it)+" km / "+fmt(p.pickupMinutes!!)+" min"}?:"pendiente"}; viaje ${p.tripKm?.let{fmt(it)+" km / "+fmt(p.tripMinutes!!)+" min"}?:"pendiente"}\n"+(r?.let{"Neto ₡${fmt(it.net)}; ₡/km ${fmt(it.netPerKm)}; ₡/hora ${fmt(it.netPerHour)}; recomendado=${it.recommended}"}?:"Rentabilidad pendiente")+d}.ifBlank{"Todavía no hay ofertas registradas."}
  logs.text=LogStore.read(this)}
  private fun fmt(v:Double)=String.format(Locale.US,"%.2f",v)
 }
