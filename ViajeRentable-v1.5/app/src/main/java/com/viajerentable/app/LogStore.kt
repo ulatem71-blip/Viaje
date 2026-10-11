@@ -1,19 +1,8 @@
 package com.viajerentable.app
-
 import android.content.Context
-
 object LogStore {
-    private const val PREFS = "diagnostic_log"
-    private const val KEY = "entries"
-    fun add(context: Context, line: String) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val old = prefs.getString(KEY, "") ?: ""
-        val next = (old + line + "\n").takeLast(12000)
-        prefs.edit().putString(KEY, next).apply()
-    }
-    fun read(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "Sin registros todavía.") ?: ""
-    fun clear(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply()
-    }
+ private const val PREFS="diagnostic_log";private const val KEY="entries";private const val LIMIT=4000
+ @Synchronized fun add(c:Context,line:String){val p=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE);val rows=((p.getString(KEY,"")?:"").lines().filter{it.isNotBlank()}+line.lines().filter{it.isNotBlank()}).toMutableList();while(rows.joinToString("\n").length>LIMIT&&rows.isNotEmpty())rows.removeAt(0);p.edit().putString(KEY,rows.joinToString("\n")).apply()}
+ fun read(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY,"Sin registros todavía.")?:""
+ fun clear(c:Context){c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().remove(KEY).apply()}
 }
