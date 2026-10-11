@@ -5,34 +5,35 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** Private on-device records; no data is uploaded. */
 object AcceptedTripStore {
     private const val PREFS = "accepted_trips"
     private const val KEY_RECORDS = "records"
     private const val KEY_SCREEN = "latest_uber_screen"
+    private const val MIN_WRITE_INTERVAL_MS = 2000L
+
     private var lastWrite = 0L
     private var lastText = ""
 
     @Synchronized
-    fun updateLatestScreen(context: Context, text: String) {
+    fun updateLatestScreen(c: Context, text: String) {
         if (text.isBlank() || text == lastText) return
         val now = System.currentTimeMillis()
-        if (now - lastWrite < 2000L) return
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_SCREEN, text.take(7000)).apply()
+        if (now - lastWrite < MIN_WRITE_INTERVAL_MS) return
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_SCREEN, text.take(7000)).apply()
         lastWrite = now
         lastText = text
     }
 
-    fun latestScreen(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_SCREEN, "") ?: ""
+    fun latestScreen(c: Context): String =
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_SCREEN, "") ?: ""
 
-    fun add(context: Context, reason: String, screenText: String): Boolean {
+    private fun clean(s: String): String = s.replace("\r", " ").replace("\n", " ↵ ").trim()
+
+    fun add(c: Context, reason: String, screenText: String): Boolean {
         if (screenText.isBlank()) return false
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        fun clean(value: String): String =
-            value.replace("\r", " ").replace("\n", " ↵ ").trim()
-
         val record = "VIAJE ACEPTADO [$stamp]\n" +
             "Motivo: ${clean(reason.ifBlank { "No indicado" })}\n" +
             "Datos visibles de Uber: ${clean(screenText).take(5000)}"
@@ -41,12 +42,11 @@ object AcceptedTripStore {
         return true
     }
 
-    fun read(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_RECORDS, "")?.takeIf { it.isNotBlank() }
-            ?: "Todavía no has guardado viajes aceptados."
+    fun read(c: Context): String =
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_RECORDS, "")
+            ?.takeIf { it.isNotBlank() } ?: "Todavía no has guardado viajes aceptados."
 
-    fun clear(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_RECORDS).apply()
+    fun clear(c: Context) {
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_RECORDS).apply()
     }
 }

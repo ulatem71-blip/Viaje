@@ -22,7 +22,18 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
       - name: Build installable debug APK
         working-directory: ViajeRentable-v1.5
-        run: sh ./gradlew assembleDebug
+        shell: bash
+        run: |
+          set +e
+          sh ./gradlew assembleDebug --stacktrace --console=plain 2>&1 | tee "$RUNNER_TEMP/build.log"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            grep -E '^e: |^w: .*error|error:' "$RUNNER_TEMP/build.log" | head -20 | while IFS= read -r l; do echo "::error title=Kotlin/Gradle::${l:0:900}"; done
+            wnt=$(sed -n '/What went wrong/,/\* Try/p' "$RUNNER_TEMP/build.log" | head -25 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=What went wrong::${wnt:0:3500}"
+            tail -n 25 "$RUNNER_TEMP/build.log" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | { read -r t; echo "::error title=Last log lines::${t:0:3500}"; }
+          fi
+          exit "$code"
       - name: Run unit tests
         if: always()
         working-directory: ViajeRentable-v1.5

@@ -68,15 +68,16 @@ class OfferAccessibilityService : AccessibilityService() {
                             Offer(parsed.fare, parsed.pickupKm!!, parsed.pickupMinutes!!, parsed.tripKm!!, parsed.tripMinutes!!),
                             DriverCostsStore.read(this)
                         )
-
+                        OffersStore.add(this, parsed, result)
+                        LogStore.add(this,
+                            "OFERTA DETALLADA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; totalKm=${fmt(result.totalKm)}; " +
+                            "totalMin=${fmt(result.totalMinutes)}; netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
+                            "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
+                        )
                     } else {
                         OffersStore.add(this, parsed, null)
                         LogStore.add(this, "OFERTA COMPACTA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; recorrido=no disponible; rentabilidad=pendiente")
                     }
-                    if (parsed.hasRouteDetails) OffersStore.add(this, parsed, Profitability.calculate(
-                        Offer(parsed.fare, parsed.pickupKm!!, parsed.pickupMinutes!!, parsed.tripKm!!, parsed.tripMinutes!!),
-                        DriverCostsStore.read(this)
-                    ))
                 }
             }
 
