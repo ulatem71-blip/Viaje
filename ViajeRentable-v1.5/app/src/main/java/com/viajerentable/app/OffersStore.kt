@@ -7,7 +7,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class RecordedOffer(val timestamp: String, val parsed: ParsedOffer, val result: ProfitResult?)
+data class RecordedOffer(
+    val timestamp: String,
+    val parsed: ParsedOffer,
+    val result: ProfitResult?,
+    val decision: Decision? = null,
+    val reasons: List<String> = emptyList()
+)
 
 /** Private on-device log of detected offers (max 200 entries, oldest dropped whole). */
 object OffersStore {
@@ -22,7 +28,7 @@ object OffersStore {
     }
 
     @Synchronized
-    fun add(c: Context, p: ParsedOffer, r: ProfitResult?) {
+    fun add(c: Context, p: ParsedOffer, r: ProfitResult?, demo: DemoResult? = null) {
         val old = load(c)
         val out = JSONArray()
         for (i in (old.length() - (MAX_ENTRIES - 1)).coerceAtLeast(0) until old.length()) {
@@ -39,6 +45,8 @@ object OffersStore {
             .put("perKm", r?.netPerKm ?: JSONObject.NULL)
             .put("perHour", r?.netPerHour ?: JSONObject.NULL)
             .put("recommended", r?.recommended ?: false)
+            .put("decision", demo?.decision?.name ?: JSONObject.NULL)
+            .put("reasons", JSONArray(demo?.reasons ?: emptyList<String>()))
         out.put(entry)
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, out.toString()).apply()
     }
@@ -69,7 +77,19 @@ object OffersStore {
                     o.getDouble("perHour"),
                     o.optBoolean("recommended")
                 )
-                list.add(RecordedOffer(o.getString("date"), p, r))
+                val decision = if (o.has("decision") && !o.isNull("decision")) {
+                    runCatching { Decision.valueOf(o.getString("decision")) }.getOrNull()
+                } else {
+                    null
+                }
+                val reasonsArray = o.optJSONArray("reasons")
+                val reasons = mutableListOf<String>()
+                if (reasonsArray != null) {
+                    for (j in 0 until reasonsArray.length()) {
+                        reasonsArray.optString(j).takeIf { it.isNotBlank() }?.let(reasons::add)
+                    }
+                }
+                list.add(RecordedOffer(o.getString("date"), p, r, decision, reasons))
             } catch (_: Exception) {
                 // Skip a corrupt entry instead of losing the whole log.
             }
@@ -79,8 +99,16 @@ object OffersStore {
 
     private fun num(v: Double?): String = v?.let { String.format(Locale.US, "%.2f", it) } ?: ""
 
+    private fun csvCell(value: String): String {
+        return if (value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {
+            "\"" + value.replace("\"", "\"\"") + "\""
+        } else {
+            value
+        }
+    }
+
     fun csv(c: Context): String {
-        val rows = mutableListOf("fecha,tarifaCRC,recogidaKm,recogidaMin,viajeKm,viajeMin,netoCRC,netoPorKm,netoPorHora,recomendado")
+        val rows = mutableListOf("fecha,tarifaCRC,recogidaKm,recogidaMin,viajeKm,viajeMin,netoCRC,netoPorKm,netoPorHora,recomendado,decisionDemo,motivos")
         for (x in read(c).reversed()) {
             rows.add(
                 listOf(
@@ -94,7 +122,9 @@ object OffersStore {
                     num(x.result?.netPerKm),
                     num(x.result?.netPerHour),
                     (x.result?.recommended ?: false).toString()
-                ).joinToString(",")
+                    x.decision?.name ?: "",
+                    x.reasons.joinToString("; ")
+                ).joinToString(",") { csvCell(it) }
             )
         }
         return rows.joinToString("\r\n")
