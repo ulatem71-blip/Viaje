@@ -64,16 +64,32 @@ class OfferAccessibilityService : AccessibilityService() {
                     lastOfferFingerprint = fingerprint
                     val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                     if (parsed.hasRouteDetails) {
+                        val costs = DriverCostsStore.read(this)
                         val result = Profitability.calculate(
                             Offer(parsed.fare, parsed.pickupKm!!, parsed.pickupMinutes!!, parsed.tripKm!!, parsed.tripMinutes!!),
-                            DriverCostsStore.read(this)
+                            costs
                         )
-                        OffersStore.add(this, parsed, result)
+                        val demo = if (DemoModeStore.isEnabled(this)) {
+                            DemoDecision.evaluate(parsed, result, costs)
+                        } else {
+                            null
+                        }
+                        OffersStore.add(this, parsed, result, demo)
                         LogStore.add(this,
                             "OFERTA DETALLADA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; totalKm=${fmt(result.totalKm)}; " +
                             "totalMin=${fmt(result.totalMinutes)}; netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
                             "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
                         )
+                        if (demo != null) {
+                            val wording = when (demo.decision) {
+                                Decision.ACEPTARIA -> "HABRÍA ACEPTADO"
+                                Decision.RECHAZARIA -> "HABRÍA RECHAZADO"
+                                Decision.SIN_DATOS -> "SIN DATOS"
+                            }
+                            LogStore.add(this,
+                                "DEMO: $wording [$timestamp]; motivos=${demo.reasons.joinToString("; ")}"
+                            )
+                        }
                     } else {
                         OffersStore.add(this, parsed, null)
                         LogStore.add(this, "OFERTA COMPACTA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; recorrido=no disponible; rentabilidad=pendiente")
