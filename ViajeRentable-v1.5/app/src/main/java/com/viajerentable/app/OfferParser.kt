@@ -5,7 +5,8 @@ data class ParsedOffer(val fare: Double, val pickupKm: Double? = null, val picku
 }
 object OfferParser {
     private val fareRegex = Regex("""(?:CRC\s*|₡\s*|\$\s*)([0-9]+(?:[,.][0-9]+)*)""", RegexOption.IGNORE_CASE)
-    private val legRegex = Regex("""((?:[0-9]{1,3}\s*(?:h|horas?)\s*)?(?:[0-9]{1,3}\s*(?:min(?:utos?)?|mins?)\b)?)\s*[^|]{0,80}?\(([0-9]+(?:[.,][0-9]+)?)\s*(km|m)\)""", RegexOption.IGNORE_CASE)
+    // group 1 = text before the parenthesis (holds the duration), group 2 = distance, group 3 = unit
+    private val legRegex = Regex("""([^|()]{0,80}?)\(([0-9]+(?:[.,][0-9]+)?)\s*(km|m)\)""", RegexOption.IGNORE_CASE)
     private val hourRegex = Regex("""([0-9]{1,3})\s*(?:h|horas?)""", RegexOption.IGNORE_CASE)
     private val minuteRegex = Regex("""([0-9]{1,3})\s*(?:min(?:utos?)?|mins?)\b""", RegexOption.IGNORE_CASE)
     fun containsFare(rawText: String) = fareRegex.containsMatchIn(rawText)
