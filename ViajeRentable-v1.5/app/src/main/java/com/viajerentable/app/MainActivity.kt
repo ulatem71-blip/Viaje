@@ -23,11 +23,11 @@ class MainActivity : Activity() {
             setPadding(pad, pad, pad, pad)
         }
         layout.addView(TextView(this).apply {
-            text = "Viaje Rentable 1.6\nCaptura de ofertas por accesibilidad"
+            text = "Viaje Rentable 1.7\nCaptura de ofertas por accesibilidad"
             textSize = 23f
         })
         layout.addView(TextView(this).apply {
-            text = "Lee texto que Uber Driver expone a accesibilidad y guarda localmente cambios que parecen ofertas. No pulsa botones ni acepta/rechaza viajes. El registro puede contener detalles visibles de una oferta; se conserva solo en este dispositivo y puedes borrarlo aquí."
+            text = "Lee texto que Uber Driver expone a accesibilidad. Guarda solo campos numéricos detectados y cálculos estimados, no el texto completo ni nombres de lugares. No pulsa botones ni acepta/rechaza viajes."
             textSize = 16f
             setPadding(0, pad, 0, pad)
         })
