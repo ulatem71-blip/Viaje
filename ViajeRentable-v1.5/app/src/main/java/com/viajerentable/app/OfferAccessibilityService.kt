@@ -46,6 +46,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         "OFERTA ESTRUCTURADA [$timestamp]\n" +
                         "tarifaCRC=${fmt(parsed.fare)}; recogidaKm=${fmt(parsed.pickupKm)}; recogidaMin=${fmt(parsed.pickupMinutes)}; " +
                         "viajeKm=${fmt(parsed.tripKm)}; viajeMin=${fmt(parsed.tripMinutes)}\n" +
+                        "recogidaLugar=${parsed.pickupPlace ?: "no detectado"}; destino=${parsed.destinationPlace ?: "no detectado"}\n" +
                         "totalKm=${fmt(result.totalKm)}; totalMin=${fmt(result.totalMinutes)}; combustibleCRC=${fmt(result.fuelCost)}; " +
                         "mantenimientoCRC=${fmt(result.maintenanceCost)}; netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
                         "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
