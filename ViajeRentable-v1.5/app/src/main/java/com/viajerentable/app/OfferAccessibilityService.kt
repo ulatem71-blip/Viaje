@@ -96,10 +96,10 @@ class OfferAccessibilityService : AccessibilityService() {
                     OffersStore.add(this, parsed, result, demo)
                     LogStore.add(
                         this,
-                        "OFERTA DETALLADA [$timestamp]; tarifaCRC=\${fmt(parsed.fare)}; " +
-                            "totalKm=\${fmt(result.totalKm)}; totalMin=\${fmt(result.totalMinutes)}; " +
-                            "netoCRC=\${fmt(result.net)}; netoPorKmCRC=\${fmt(result.netPerKm)}; " +
-                            "netoPorHora=\${fmt(result.netPerHour)}; recomendado=\${result.recommended}"
+                        "OFERTA DETALLADA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; " +
+                            "totalKm=${fmt(result.totalKm)}; totalMin=${fmt(result.totalMinutes)}; " +
+                            "netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
+                            "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
                     )
                     if (demo != null) {
                         val wording = when (demo.decision) {
@@ -109,14 +109,14 @@ class OfferAccessibilityService : AccessibilityService() {
                         }
                         LogStore.add(
                             this,
-                            "DEMO: $wording [$timestamp]; motivos=\${demo.reasons.joinToString("; ")}"
+                            "DEMO: $wording [$timestamp]; motivos=${demo.reasons.joinToString("; ")}"
                         )
                     }
                 } else {
                     OffersStore.add(this, parsed, null)
                     LogStore.add(
                         this,
-                        "OFERTA COMPACTA [$timestamp]; tarifaCRC=\${fmt(parsed.fare)}; " +
+                        "OFERTA COMPACTA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; " +
                             "recorrido=no disponible; rentabilidad=pendiente"
                     )
                 }
@@ -127,15 +127,15 @@ class OfferAccessibilityService : AccessibilityService() {
                 val hasFare = OfferParser.containsFare(combined)
                 val hasRoute = OfferParser.containsRouteLeg(combined)
                 addDiagnostic(
-                    "DIAGNOSTICO; evento=\${event.eventType}; ventanas=\${windowsSnapshot.size}; " +
-                        "nodos=\${counter.nodes}; nodosConTexto=\${normalized.size}; " +
-                        "textoAccesible=\${normalized.isNotEmpty()}; contieneTarifa=$hasFare; " +
-                        "contieneTramo=$hasRoute; ofertaDetectada=\${parsed != null}; " +
-                        "tipoOferta=\${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}"
+                    "DIAGNOSTICO; evento=${event.eventType}; ventanas=${windowsSnapshot.size}; " +
+                        "nodos=${counter.nodes}; nodosConTexto=${normalized.size}; " +
+                        "textoAccesible=${normalized.isNotEmpty()}; contieneTarifa=$hasFare; " +
+                        "contieneTramo=$hasRoute; ofertaDetectada=${parsed != null}; " +
+                        "tipoOferta=${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}"
                 )
             }
         } catch (e: Exception) {
-            addDiagnostic("ERROR DE LECTURA: \${e.javaClass.simpleName}")
+            addDiagnostic("ERROR DE LECTURA: ${e.javaClass.simpleName}")
         }
     }
 
