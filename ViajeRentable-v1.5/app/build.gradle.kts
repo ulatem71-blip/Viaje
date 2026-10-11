@@ -9,8 +9,8 @@ android {
         applicationId = "com.viajerentable.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "1.12"
+        versionCode = 23
+        versionName = "1.13"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
