@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+D="${GRADLE_USER_HOME:-$HOME/.gradle}/viaje-gradle"
+G="$D/gradle-8.9"
+if [ ! -x "$G/bin/gradle" ]; then
+ mkdir -p "$D"; Z="$D/gradle-8.9-bin.zip"
+ [ -f "$Z" ] || curl -fL --retry 3 https://services.gradle.org/distributions/gradle-8.9-bin.zip -o "$Z"
+ unzip -q -o "$Z" -d "$D"
+fi
+exec "$G/bin/gradle" "$@"
