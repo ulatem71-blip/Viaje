@@ -2,11 +2,12 @@
 
 ## Estado actual
 - Repositorio: ulatem71-blip/Viaje; aplicación Android Kotlin en ViajeRentable-v1.5/.
-- Tarea actual: modo demo y simulador, versión 1.13 (versionCode 23).
-- Rama: chatgpt/modo-demo, creada desde la punta de main en 89de553bce88b05093445ece16eb19ca736ea608.
-- El modo demo solo calcula y registra una decisión hipotética; no interactúa con los controles de Uber.
-- CI verde (11-oct-2026): https://github.com/ulatem71-blip/Viaje/actions/runs/38169693127. Pasaron la comprobación anti-clics, assembleDebug, test y la subida del APK ViajeRentable-apk.
-- No pude ejecutar git pull ni los comandos Gradle desde un checkout local porque la terminal no puede resolver GitHub. Main fue consultado por API y sigue en 89de553bce88b05093445ece16eb19ca736ea608, pero falta cumplir el git pull local antes del merge.
+- Tarea actual: deduplicación de ofertas y limitación de diagnósticos, versión 1.14 (versionCode 24).
+- Rama: chatgpt/dedupe-ofertas, creada desde la punta remota de main consultada por API: 2794d1109a49cdda9b61b9536ed12681a09d3a4d.
+- El deduplicador usa una ventana configurable de 120000 ms y reloj inyectable. Una compacta repetida se suprime si la tarifa ya existe; una detallada se suprime solo si coinciden tarifa y todos los campos de ruta.
+- El registro de diagnósticos se limita a una línea cada 30 s y elimina diagnósticos antes que ofertas al alcanzar el límite.
+- CI pendiente de ejecutar para esta rama.
+- No fue posible ejecutar git pull de main desde la terminal porque no resuelve github.com. La rama se basó en el SHA remoto consultado y no se hará merge hasta poder sincronizar main localmente y confirmar CI verde.
 - El paso del keystore y el secret VIAJE_DEBUG_KEYSTORE_BASE64 deben permanecer intactos.
 
 ## Reglas del proyecto
@@ -19,13 +20,13 @@
 - Si el CI falla, copiar literalmente las líneas e: file:// o el bloque What went wrong; no adivinar la causa.
 
 ## Pendiente
-- Revalidar CI después de esta actualización de HANDOFF.
-- Con CI verde, ejecutar git pull de main en un checkout local, revisar que no haya cambios nuevos en conflicto y hacer merge del PR.
-- Actualizar este archivo después del merge; el merge sigue pendiente porque no hay acceso de terminal a GitHub en este entorno.
-- Probar en dispositivo el modo demo y el simulador con texto real expuesto por Uber Driver; confirmar que el simulador no añade registros.
+- Ejecutar sh ./gradlew assembleDebug y sh ./gradlew test desde un checkout completo; el directorio local disponible solo contiene README y no incluye Gradle Wrapper ni fuentes.
+- Esperar CI verde en la rama chatgpt/dedupe-ofertas.
+- Cuando exista un checkout con acceso a GitHub, hacer git pull de main, verificar conflictos y solo entonces mergear el PR con CI verde.
+- Después del merge, actualizar HANDOFF.md con el SHA y el enlace de Actions.
+- Probar en dispositivo con texto real expuesto por Uber Driver y verificar que 27 ofertas únicas ya no generan entradas repetidas por alternancia.
 
 ## Historial de cambios
-- 2026-10-11: creada chatgpt/modo-demo desde la punta de main consultada a través de GitHub; no se pudo hacer git pull localmente por falta de conectividad de terminal.
-- 2026-10-11: versión 1.13/versionCode 23; agregado DemoDecision.kt, interruptor de modo demo, registro compatible con entradas antiguas, columnas decisionDemo/motivos, simulador y tests de decisión.
-- 2026-10-11: agregado al workflow el guard de seguridad para que falle si encuentra patrones de automatización de clics en ViajeRentable-v1.5/app/src/main. No se modificó el paso del keystore.
-- 2026-10-11: CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38169693127; compilación, pruebas y guard anti-clics pasaron. Merge pendiente de sincronización local de main.
+- 2026-10-11: versión 1.14/versionCode 24; agregado OfferDeduplicator.kt con huella detallada por tarifa/ruta, supresión compacta por tarifa, limpieza por ventana y reloj inyectable.
+- 2026-10-11: OfferAccessibilityService ahora deduplica antes de persistir o evaluar demo; diagnósticos limitados a uno cada 30 s y priorización de ofertas en LogStore.
+- 2026-10-11: agregados cinco tests solicitados más una prueba del reloj inyectable. El workflow y el paso del keystore no se modificaron.

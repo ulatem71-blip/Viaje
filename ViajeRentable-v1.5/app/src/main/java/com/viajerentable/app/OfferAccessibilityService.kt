@@ -10,7 +10,7 @@ import java.util.Locale
 /** Reads text exposed by Uber Driver accessibility, including visible interactive windows. */
 class OfferAccessibilityService : AccessibilityService() {
     private var lastDiagnosticAt = 0L
-    private var lastOfferFingerprint = ""
+    private val offerDeduplicator = OfferDeduplicator()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -23,77 +23,102 @@ class OfferAccessibilityService : AccessibilityService() {
         try {
             val texts = mutableListOf<String>()
             val counter = Counter()
-
-            // The event source can point directly at the Uber card even when split-screen
-            // makes rootInActiveWindow point at another app.
             val source = event.source
             if (source != null) {
-                try { collectText(source, texts, counter, 0) } finally { source.recycle() }
+                try {
+                    collectText(source, texts, counter, 0)
+                } finally {
+                    source.recycle()
+                }
             }
 
-            // Read all interactive windows exposed by Accessibility, not just the active root.
-            val windowsSnapshot = try { windows } catch (_: Exception) { emptyList() }
+            val windowsSnapshot = try {
+                windows
+            } catch (_: Exception) {
+                emptyList()
+            }
             for (window in windowsSnapshot) {
                 if (counter.nodes >= MAX_NODES) break
-                val windowRoot = try { window.root } catch (_: Exception) { null } ?: continue
+                val windowRoot = try {
+                    window.root
+                } catch (_: Exception) {
+                    null
+                } ?: continue
                 try {
-                    if (windowRoot.packageName?.toString() == UBER_DRIVER_PACKAGE) collectText(windowRoot, texts, counter, 0)
-                } finally { windowRoot.recycle() }
+                    if (windowRoot.packageName?.toString() == UBER_DRIVER_PACKAGE) {
+                        collectText(windowRoot, texts, counter, 0)
+                    }
+                } finally {
+                    windowRoot.recycle()
+                }
             }
 
             if (texts.isEmpty()) {
                 val root = rootInActiveWindow
                 if (root != null) {
-                    try { if (root.packageName?.toString() == UBER_DRIVER_PACKAGE) collectText(root, texts, counter, 0) } finally { root.recycle() }
+                    try {
+                        if (root.packageName?.toString() == UBER_DRIVER_PACKAGE) {
+                            collectText(root, texts, counter, 0)
+                        }
+                    } finally {
+                        root.recycle()
+                    }
                 }
             }
 
             val normalized = texts.map { it.replace(Regex("\\s+"), " ").trim() }
-                .filter { it.isNotEmpty() }.distinct()
+                .filter { it.isNotEmpty() }
+                .distinct()
             val combined = normalized.joinToString(" | ")
-            // Keep the latest text exposed by Uber locally so the driver can review vehicle/trip details
-            // and manually save an accepted trip with their own reason in the app UI.
             AcceptedTripStore.updateLatestScreen(this, combined)
             val parsed = OfferParser.parse(combined)
             val now = System.currentTimeMillis()
 
-            if (parsed != null) {
-                val kind = if (parsed.hasRouteDetails) "DETALLADA" else "COMPACTA"
-                val fingerprint = listOf(kind, parsed.fare, parsed.pickupKm, parsed.pickupMinutes, parsed.tripKm, parsed.tripMinutes).joinToString("|")
-                if (fingerprint != lastOfferFingerprint) {
-                    lastOfferFingerprint = fingerprint
-                    val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                    if (parsed.hasRouteDetails) {
-                        val costs = DriverCostsStore.read(this)
-                        val result = Profitability.calculate(
-                            Offer(parsed.fare, parsed.pickupKm!!, parsed.pickupMinutes!!, parsed.tripKm!!, parsed.tripMinutes!!),
-                            costs
-                        )
-                        val demo = if (DemoModeStore.isEnabled(this)) {
-                            DemoDecision.evaluate(parsed, result, costs)
-                        } else {
-                            null
-                        }
-                        OffersStore.add(this, parsed, result, demo)
-                        LogStore.add(this,
-                            "OFERTA DETALLADA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; totalKm=${fmt(result.totalKm)}; " +
-                            "totalMin=${fmt(result.totalMinutes)}; netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
-                            "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
-                        )
-                        if (demo != null) {
-                            val wording = when (demo.decision) {
-                                Decision.ACEPTARIA -> "HABRÍA ACEPTADO"
-                                Decision.RECHAZARIA -> "HABRÍA RECHAZADO"
-                                Decision.SIN_DATOS -> "SIN DATOS"
-                            }
-                            LogStore.add(this,
-                                "DEMO: $wording [$timestamp]; motivos=${demo.reasons.joinToString("; ")}"
-                            )
-                        }
+            if (parsed != null && offerDeduplicator.shouldRecord(parsed, now)) {
+                val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(now))
+                if (parsed.hasRouteDetails) {
+                    val costs = DriverCostsStore.read(this)
+                    val result = Profitability.calculate(
+                        Offer(
+                            parsed.fare,
+                            parsed.pickupKm!!,
+                            parsed.pickupMinutes!!,
+                            parsed.tripKm!!,
+                            parsed.tripMinutes!!
+                        ),
+                        costs
+                    )
+                    val demo = if (DemoModeStore.isEnabled(this)) {
+                        DemoDecision.evaluate(parsed, result, costs)
                     } else {
-                        OffersStore.add(this, parsed, null)
-                        LogStore.add(this, "OFERTA COMPACTA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; recorrido=no disponible; rentabilidad=pendiente")
+                        null
                     }
+                    OffersStore.add(this, parsed, result, demo)
+                    LogStore.add(
+                        this,
+                        "OFERTA DETALLADA [$timestamp]; tarifaCRC=\${fmt(parsed.fare)}; " +
+                            "totalKm=\${fmt(result.totalKm)}; totalMin=\${fmt(result.totalMinutes)}; " +
+                            "netoCRC=\${fmt(result.net)}; netoPorKmCRC=\${fmt(result.netPerKm)}; " +
+                            "netoPorHora=\${fmt(result.netPerHour)}; recomendado=\${result.recommended}"
+                    )
+                    if (demo != null) {
+                        val wording = when (demo.decision) {
+                            Decision.ACEPTARIA -> "HABRÍA ACEPTADO"
+                            Decision.RECHAZARIA -> "HABRÍA RECHAZADO"
+                            Decision.SIN_DATOS -> "SIN DATOS"
+                        }
+                        LogStore.add(
+                            this,
+                            "DEMO: $wording [$timestamp]; motivos=\${demo.reasons.joinToString("; ")}"
+                        )
+                    }
+                } else {
+                    OffersStore.add(this, parsed, null)
+                    LogStore.add(
+                        this,
+                        "OFERTA COMPACTA [$timestamp]; tarifaCRC=\${fmt(parsed.fare)}; " +
+                            "recorrido=no disponible; rentabilidad=pendiente"
+                    )
                 }
             }
 
@@ -101,17 +126,29 @@ class OfferAccessibilityService : AccessibilityService() {
                 lastDiagnosticAt = now
                 val hasFare = OfferParser.containsFare(combined)
                 val hasRoute = OfferParser.containsRouteLeg(combined)
-                addDiagnostic("DIAGNOSTICO; evento=${event.eventType}; ventanas=${windowsSnapshot.size}; nodos=${counter.nodes}; " +
-                    "nodosConTexto=${normalized.size}; textoAccesible=${normalized.isNotEmpty()}; contieneTarifa=$hasFare; " +
-                    "contieneTramo=$hasRoute; ofertaDetectada=${parsed != null}; tipoOferta=${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}")
+                addDiagnostic(
+                    "DIAGNOSTICO; evento=\${event.eventType}; ventanas=\${windowsSnapshot.size}; " +
+                        "nodos=\${counter.nodes}; nodosConTexto=\${normalized.size}; " +
+                        "textoAccesible=\${normalized.isNotEmpty()}; contieneTarifa=$hasFare; " +
+                        "contieneTramo=$hasRoute; ofertaDetectada=\${parsed != null}; " +
+                        "tipoOferta=\${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}"
+                )
             }
         } catch (e: Exception) {
-            addDiagnostic("ERROR DE LECTURA: ${e.javaClass.simpleName}")
+            addDiagnostic("ERROR DE LECTURA: \${e.javaClass.simpleName}")
         }
     }
 
-    private fun fmt(value: Double) = String.format(Locale.US, "%.2f", value)
-    private fun collectText(node: AccessibilityNodeInfo, output: MutableList<String>, counter: Counter, depth: Int) {
+    private fun fmt(value: Double): String {
+        return String.format(Locale.US, "%.2f", value)
+    }
+
+    private fun collectText(
+        node: AccessibilityNodeInfo,
+        output: MutableList<String>,
+        counter: Counter,
+        depth: Int
+    ) {
         if (depth > MAX_TREE_DEPTH || counter.nodes >= MAX_NODES) return
         counter.nodes++
         node.text?.toString()?.takeIf { it.isNotBlank() }?.let(output::add)
@@ -119,17 +156,33 @@ class OfferAccessibilityService : AccessibilityService() {
         for (i in 0 until node.childCount) {
             if (counter.nodes >= MAX_NODES) break
             val child = node.getChild(i) ?: continue
-            try { collectText(child, output, counter, depth + 1) } finally { child.recycle() }
+            try {
+                collectText(child, output, counter, depth + 1)
+            } finally {
+                child.recycle()
+            }
         }
     }
-    private fun addDiagnostic(message: String) = LogStore.add(this, message)
-    override fun onInterrupt() { LogStore.add(this, "SERVICIO INTERRUMPIDO") }
-    override fun onDestroy() { LogStore.add(this, "SERVICIO DESCONECTADO"); super.onDestroy() }
+
+    private fun addDiagnostic(message: String) {
+        LogStore.add(this, message)
+    }
+
+    override fun onInterrupt() {
+        LogStore.add(this, "SERVICIO INTERRUMPIDO")
+    }
+
+    override fun onDestroy() {
+        LogStore.add(this, "SERVICIO DESCONECTADO")
+        super.onDestroy()
+    }
+
     private class Counter(var nodes: Int = 0)
+
     companion object {
         private const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
         private const val MAX_TREE_DEPTH = 18
         private const val MAX_NODES = 1000
-        private const val DIAGNOSTIC_INTERVAL_MS = 10000L
+        private const val DIAGNOSTIC_INTERVAL_MS = 30000L
     }
 }
