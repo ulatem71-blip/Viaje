@@ -24,9 +24,11 @@ jobs:
         working-directory: ViajeRentable-v1.5
         run: sh ./gradlew assembleDebug
       - name: Run unit tests
+        if: always()
         working-directory: ViajeRentable-v1.5
         run: sh ./gradlew test
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: ViajeRentable-apk
           path: ViajeRentable-v1.5/app/build/outputs/apk/debug/app-debug.apk
