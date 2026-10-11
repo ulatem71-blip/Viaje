@@ -7,7 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Reads Uber Driver accessibility text; stores only numeric fields and derived calculations. */
+/** Reads Uber Driver accessibility text and stores each detected offer independently. */
 class OfferAccessibilityService : AccessibilityService() {
     private var lastDiagnosticAt = 0L
     private var lastOfferFingerprint = ""
@@ -20,8 +20,7 @@ class OfferAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         if (event.packageName?.toString() != UBER_DRIVER_PACKAGE) return
-        val root = rootInActiveWindow
-        if (root == null) {
+        val root = rootInActiveWindow ?: run {
             addDiagnostic("Uber detectado; ventana activa no disponible")
             return
         }
@@ -34,29 +33,34 @@ class OfferAccessibilityService : AccessibilityService() {
             val parsed = OfferParser.parse(normalized.joinToString(" | "))
             val now = System.currentTimeMillis()
             if (parsed != null) {
-                val fingerprint = listOf(parsed.fare, parsed.pickupKm, parsed.pickupMinutes, parsed.tripKm, parsed.tripMinutes).joinToString("|")
+                val kind = if (parsed.hasRouteDetails) "DETALLADA" else "COMPACTA"
+                val fingerprint = listOf(kind, parsed.fare, parsed.pickupKm, parsed.pickupMinutes, parsed.tripKm, parsed.tripMinutes).joinToString("|")
                 if (fingerprint != lastOfferFingerprint) {
                     lastOfferFingerprint = fingerprint
                     val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                    val result = Profitability.calculate(
-                        Offer(parsed.fare, parsed.pickupKm, parsed.pickupMinutes, parsed.tripKm, parsed.tripMinutes),
-                        DriverCosts()
-                    )
-                    LogStore.add(this,
-                        "OFERTA ESTRUCTURADA [$timestamp]\n" +
-                        "tarifaCRC=${fmt(parsed.fare)}; recogidaKm=${fmt(parsed.pickupKm)}; recogidaMin=${fmt(parsed.pickupMinutes)}; " +
-                        "viajeKm=${fmt(parsed.tripKm)}; viajeMin=${fmt(parsed.tripMinutes)}\n" +
-                        "recogidaLugar=${parsed.pickupPlace ?: "no detectado"}; destino=${parsed.destinationPlace ?: "no detectado"}\n" +
-                        "totalKm=${fmt(result.totalKm)}; totalMin=${fmt(result.totalMinutes)}; combustibleCRC=${fmt(result.fuelCost)}; " +
-                        "mantenimientoCRC=${fmt(result.maintenanceCost)}; netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
-                        "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
-                    )
+                    if (parsed.hasRouteDetails) {
+                        val result = Profitability.calculate(
+                            Offer(parsed.fare, parsed.pickupKm!!, parsed.pickupMinutes!!, parsed.tripKm!!, parsed.tripMinutes!!),
+                            DriverCosts()
+                        )
+                        LogStore.add(this,
+                            "OFERTA DETALLADA [$timestamp]\n" +
+                            "tarifaCRC=${fmt(parsed.fare)}; recogidaKm=${fmt(parsed.pickupKm)}; recogidaMin=${fmt(parsed.pickupMinutes)}; " +
+                            "viajeKm=${fmt(parsed.tripKm)}; viajeMin=${fmt(parsed.tripMinutes)}\n" +
+                            "recogidaLugar=${parsed.pickupPlace ?: "no detectado"}; destino=${parsed.destinationPlace ?: "no detectado"}\n" +
+                            "totalKm=${fmt(result.totalKm)}; totalMin=${fmt(result.totalMinutes)}; combustibleCRC=${fmt(result.fuelCost)}; " +
+                            "mantenimientoCRC=${fmt(result.maintenanceCost)}; netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
+                            "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
+                        )
+                    } else {
+                        LogStore.add(this, "OFERTA COMPACTA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; recorrido=no disponible; rentabilidad=pendiente")
+                    }
                 }
             }
             if (now - lastDiagnosticAt >= DIAGNOSTIC_INTERVAL_MS) {
                 lastDiagnosticAt = now
                 addDiagnostic("DIAGNOSTICO; evento=${event.eventType}; nodos=${counter.nodes}; nodosConTexto=${normalized.size}; " +
-                    "textoAccesible=${normalized.isNotEmpty()}; ofertaEstructurada=${parsed != null}")
+                    "textoAccesible=${normalized.isNotEmpty()}; ofertaDetectada=${parsed != null}; tipoOferta=${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}")
             }
         } catch (e: Exception) {
             addDiagnostic("ERROR DE LECTURA: ${e.javaClass.simpleName}")
