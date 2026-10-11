@@ -49,6 +49,9 @@ class OfferAccessibilityService : AccessibilityService() {
             val normalized = texts.map { it.replace(Regex("\\s+"), " ").trim() }
                 .filter { it.isNotEmpty() }.distinct()
             val combined = normalized.joinToString(" | ")
+            // Keep the latest text exposed by Uber locally so the driver can review vehicle/trip details
+            // and manually save an accepted trip with their own reason in the app UI.
+            AcceptedTripStore.updateLatestScreen(this, combined)
             val parsed = OfferParser.parse(combined)
             val now = System.currentTimeMillis()
 
