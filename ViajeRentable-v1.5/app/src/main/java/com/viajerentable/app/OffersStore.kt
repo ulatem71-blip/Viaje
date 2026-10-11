@@ -121,7 +121,7 @@ object OffersStore {
                     num(x.result?.net),
                     num(x.result?.netPerKm),
                     num(x.result?.netPerHour),
-                    (x.result?.recommended ?: false).toString()
+                    (x.result?.recommended ?: false).toString(),
                     x.decision?.name ?: "",
                     x.reasons.joinToString("; ")
                 ).joinToString(",") { csvCell(it) }
