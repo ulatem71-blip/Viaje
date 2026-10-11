@@ -22,10 +22,10 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
       - name: Build installable debug APK
         working-directory: ViajeRentable-v1.5
-        run: ./gradlew assembleDebug
+        run: sh ./gradlew assembleDebug
       - name: Run unit tests
         working-directory: ViajeRentable-v1.5
-        run: ./gradlew test
+        run: sh ./gradlew test
       - uses: actions/upload-artifact@v4
         with:
           name: ViajeRentable-apk
