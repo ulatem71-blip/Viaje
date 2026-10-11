@@ -1,37 +1,11 @@
 package com.viajerentable.app
-
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import org.junit.Assert.*
 import org.junit.Test
-
 class OfferParserTest {
-    @Test fun parsesDetailedUberOfferFormat() {
-        val parsed = OfferParser.parse("UberX | Exclusivo | CRC1,404.33 | 4.93 (1547) | A 7 min (1.4 km) | C. Lisboa | Viaje: 10 min (2.7 km) | SAN RAFAEL - LA UNION | Aceptar")
-        assertNotNull(parsed)
-        assertEquals(1404.33, parsed!!.fare, 0.01)
-        assertEquals(1.4, parsed.pickupKm!!, 0.01)
-        assertEquals(7.0, parsed.pickupMinutes!!, 0.01)
-        assertEquals(2.7, parsed.tripKm!!, 0.01)
-        assertEquals(10.0, parsed.tripMinutes!!, 0.01)
-        assertEquals("C. Lisboa", parsed.pickupPlace)
-        assertEquals("SAN RAFAEL - LA UNION", parsed.destinationPlace)
-        assertTrue(parsed.hasRouteDetails)
-    }
-
-    @Test fun detectsCompactUberOfferWithFareOnly() {
-        val parsed = OfferParser.parse("UberX | CRC3,206.05 | Identidad digital verificada o Tarjeta | Me interesa")
-        assertNotNull(parsed)
-        assertEquals(3206.05, parsed!!.fare, 0.01)
-        assertFalse(parsed.hasRouteDetails)
-        assertNull(parsed.pickupKm)
-        assertNull(parsed.destinationPlace)
-    }
-
-    @Test fun rejectsIncompleteTextWithoutFare() {
-        assertNull(OfferParser.parse("Uber Driver | Busca lugares"))
-        assertNull(OfferParser.parse("1-2 min"))
-    }
+ @Test fun detailedOffer(){ val p=OfferParser.parse("UberX | Exclusivo | CRC1,404.33 | 4.93 (1547) | A 7 min (1.4 km) | C. Lisboa | Viaje: 10 min (2.7 km) | SAN RAFAEL - LA UNION | Aceptar"); assertNotNull(p); assertEquals(1404.33,p!!.fare,.01); assertEquals(1.4,p.pickupKm!!,.01); assertEquals(7.0,p.pickupMinutes!!,.01); assertEquals(2.7,p.tripKm!!,.01); assertEquals(10.0,p.tripMinutes!!,.01); assertEquals("C. Lisboa",p.pickupPlace); assertEquals("SAN RAFAEL - LA UNION",p.destinationPlace); assertTrue(p.hasRouteDetails) }
+ @Test fun compactOffer(){ val p=OfferParser.parse("UberX | CRC3,206.05 | Identidad digital verificada o Tarjeta | Me interesa"); assertNotNull(p); assertEquals(3206.05,p!!.fare,.01); assertFalse(p.hasRouteDetails); assertNull(p.pickupKm) }
+ @Test fun hours(){ assertEquals(65.0,OfferParser.parse("UberX | CRC9,500.00 | A 7 min (1.4 km) | Viaje: 1 h 5 min (45 km) | Aceptar")!!.tripMinutes!!,.001); assertEquals(60.0,OfferParser.parse("UberX | CRC9,500.00 | A 7 min (1.4 km) | Viaje: 1 h (30 km) | Aceptar")!!.tripMinutes!!,.001); assertEquals(65.0,OfferParser.parse("UberX | CRC9,500.00 | A 7 min (1.4 km) | Viaje: 1 hora 5 minutos (45 km) | Aceptar")!!.tripMinutes!!,.001) }
+ @Test fun metersAndFarePunctuation(){ val p=OfferParser.parse("UberX | CRC1,404.33 | A 2 min (300 m) | Viaje: 10 min (2.7 km) | Aceptar"); assertNotNull(p); assertEquals(.3,p!!.pickupKm!!,.001); assertTrue(p.hasRouteDetails); assertEquals(1404.33,OfferParser.parse("UberX | CRC1,404.33. | A 7 min (1.4 km) | Viaje: 10 min (2.7 km) | Aceptar")!!.fare,.001) }
+ @Test fun dotThousandsAndLimits(){ assertEquals(1404.0,OfferParser.parse("UberX | ₡1.404 | A 7 min (1.4 km) | Viaje: 10 min (2.7 km) | Aceptar")!!.fare,.001); assertEquals(1404.0,OfferParser.parseNumber("1.404")!!,.001); assertNull(OfferParser.parse("Ganancias de hoy | ₡15,230 | 8 viajes | Cuenta")); assertNull(OfferParser.parse("UberX | CRC100 | A 2 min (300 m) | Viaje: 10 min (2.7 km) | Aceptar")); assertNull(OfferParser.parse("UberX | CRC300000 | A 2 min (300 m) | Viaje: 10 min (2.7 km) | Aceptar")) }
+ @Test fun rejectsMissingFare(){ assertNull(OfferParser.parse("Uber Driver | Busca lugares")); assertNull(OfferParser.parse("1-2 min")) }
 }
