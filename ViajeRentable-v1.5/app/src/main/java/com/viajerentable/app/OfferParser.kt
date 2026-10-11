@@ -17,7 +17,7 @@ object OfferParser {
     private val fareRegex = Regex("""(?:CRC\s*|₡\s*|\$\s*)([0-9][0-9,.]*)""", RegexOption.IGNORE_CASE)
     private val legRegex = Regex("""([0-9]{1,3})\s*(?:min(?:uto)?s?|mins?)\b[^|]{0,120}?([0-9]+(?:[.,][0-9]+)?)\s*km""", RegexOption.IGNORE_CASE)
 
-    fun parse(rawText: String): ParsedOffer? {
+    fun containsFare(rawText: String): Boolean = fareRegex.containsMatchIn(rawText)\n\n    fun containsRouteLeg(rawText: String): Boolean = legRegex.findAll(rawText).count() >= 2\n\n    fun parse(rawText: String): ParsedOffer? {
         val segments = rawText.split("|").map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.isNotEmpty() }
         val fareMatch = fareRegex.find(segments.joinToString(" | ")) ?: return null
         val fare = parseNumber(fareMatch.groupValues[1]) ?: return null
