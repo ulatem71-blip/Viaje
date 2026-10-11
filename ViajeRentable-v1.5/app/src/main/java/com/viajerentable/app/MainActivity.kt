@@ -23,11 +23,11 @@ class MainActivity : Activity() {
             setPadding(pad, pad, pad, pad)
         }
         layout.addView(TextView(this).apply {
-            text = "Viaje Rentable 1.7\nCaptura de ofertas por accesibilidad"
+            text = "Viaje Rentable 1.9\\nCaptura de ofertas por accesibilidad"
             textSize = 23f
         })
         layout.addView(TextView(this).apply {
-            text = "Lee texto que Uber Driver expone a accesibilidad. Guarda solo campos numéricos detectados y cálculos estimados, no el texto completo ni nombres de lugares. No pulsa botones ni acepta/rechaza viajes."
+            text = "Lee texto que Uber Driver expone a accesibilidad. Guarda campos numéricos, lugares detectados y cálculos estimados. Las ofertas compactas se registran con tarifa y sin rentabilidad hasta disponer del recorrido. No pulsa botones ni acepta/rechaza viajes."
             textSize = 16f
             setPadding(0, pad, 0, pad)
         })
@@ -60,6 +60,6 @@ class MainActivity : Activity() {
         val manager = getSystemService(ACCESSIBILITY_SERVICE) as AccessibilityManager
         val enabled = manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
             .any { it.id?.contains(packageName) == true }
-        logView.text = "Servicio habilitado: $enabled\n\n" + LogStore.read(this)
+        logView.text = "Servicio habilitado: $enabled\\n\\n" + LogStore.read(this)
     }
 }
