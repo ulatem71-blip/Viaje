@@ -56,8 +56,8 @@ class DemoDecisionTest {
     @Test
     fun negativeNetWouldBeRejected() {
         val costs = DriverCosts(kmPerLiter = 1000000.0, fuelPricePerLiter = 0.0,
-            maintenancePerKm = 0.0, minimumNetPerHour = 0.0, minimumNetPerKm = 0.0)
-        val p = offer(-100.0)
+            maintenancePerKm = 100.0, minimumNetPerHour = 0.0, minimumNetPerKm = 0.0)
+        val p = offer(100.0)
         val result = DemoDecision.evaluate(p, calculate(p, costs), costs)
         assertEquals(Decision.RECHAZARIA, result.decision)
         assertTrue(result.reasons.contains("Neto negativo"))
@@ -83,7 +83,7 @@ class DemoDecisionTest {
     @Test
     fun multipleFailedCriteriaAreAllReported() {
         val costs = DriverCosts(kmPerLiter = 1000000.0, fuelPricePerLiter = 0.0,
-            maintenancePerKm = 0.0, minimumNetPerHour = 50000.0, minimumNetPerKm = 1000.0)
+            maintenancePerKm = 100.0, minimumNetPerHour = 50000.0, minimumNetPerKm = 1000.0)
         val p = offer(100.0)
         val result = DemoDecision.evaluate(p, calculate(p, costs), costs)
         assertEquals(Decision.RECHAZARIA, result.decision)
