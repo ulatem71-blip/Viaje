@@ -7,31 +7,51 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Reads Uber Driver accessibility text and stores each detected offer independently. */
+/** Reads text exposed by Uber Driver accessibility, including visible interactive windows. */
 class OfferAccessibilityService : AccessibilityService() {
     private var lastDiagnosticAt = 0L
     private var lastOfferFingerprint = ""
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        LogStore.add(this, "SERVICIO CONECTADO; captura estructurada local activada")
+        LogStore.add(this, "SERVICIO CONECTADO; captura local activada")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         if (event.packageName?.toString() != UBER_DRIVER_PACKAGE) return
-        val root = rootInActiveWindow ?: run {
-            addDiagnostic("Uber detectado; ventana activa no disponible")
-            return
-        }
         try {
             val texts = mutableListOf<String>()
             val counter = Counter()
-            collectText(root, texts, counter, 0)
+
+            // The event source can point directly at the Uber card even when split-screen
+            // makes rootInActiveWindow point at another app.
+            val source = event.source
+            if (source != null) {
+                try { collectText(source, texts, counter, 0) } finally { source.recycle() }
+            }
+
+            // Read all interactive windows exposed by Accessibility, not just the active root.
+            val windowsSnapshot = try { windows } catch (_: Exception) { emptyList() }
+            for (window in windowsSnapshot) {
+                if (counter.nodes >= MAX_NODES) break
+                val windowRoot = try { window.root } catch (_: Exception) { null } ?: continue
+                try { collectText(windowRoot, texts, counter, 0) } finally { windowRoot.recycle() }
+            }
+
+            if (texts.isEmpty()) {
+                val root = rootInActiveWindow
+                if (root != null) {
+                    try { collectText(root, texts, counter, 0) } finally { root.recycle() }
+                }
+            }
+
             val normalized = texts.map { it.replace(Regex("\\s+"), " ").trim() }
                 .filter { it.isNotEmpty() }.distinct()
-            val parsed = OfferParser.parse(normalized.joinToString(" | "))
+            val combined = normalized.joinToString(" | ")
+            val parsed = OfferParser.parse(combined)
             val now = System.currentTimeMillis()
+
             if (parsed != null) {
                 val kind = if (parsed.hasRouteDetails) "DETALLADA" else "COMPACTA"
                 val fingerprint = listOf(kind, parsed.fare, parsed.pickupKm, parsed.pickupMinutes, parsed.tripKm, parsed.tripMinutes).joinToString("|")
@@ -57,15 +77,17 @@ class OfferAccessibilityService : AccessibilityService() {
                     }
                 }
             }
+
             if (now - lastDiagnosticAt >= DIAGNOSTIC_INTERVAL_MS) {
                 lastDiagnosticAt = now
-                addDiagnostic("DIAGNOSTICO; evento=${event.eventType}; nodos=${counter.nodes}; nodosConTexto=${normalized.size}; " +
-                    "textoAccesible=${normalized.isNotEmpty()}; ofertaDetectada=${parsed != null}; tipoOferta=${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}")
+                val hasFare = OfferParser.containsFare(combined)
+                val hasRoute = OfferParser.containsRouteLeg(combined)
+                addDiagnostic("DIAGNOSTICO; evento=${event.eventType}; ventanas=${windowsSnapshot.size}; nodos=${counter.nodes}; " +
+                    "nodosConTexto=${normalized.size}; textoAccesible=${normalized.isNotEmpty()}; contieneTarifa=$hasFare; " +
+                    "contieneTramo=$hasRoute; ofertaDetectada=${parsed != null}; tipoOferta=${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}")
             }
         } catch (e: Exception) {
             addDiagnostic("ERROR DE LECTURA: ${e.javaClass.simpleName}")
-        } finally {
-            root.recycle()
         }
     }
 
@@ -88,7 +110,7 @@ class OfferAccessibilityService : AccessibilityService() {
     companion object {
         private const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
         private const val MAX_TREE_DEPTH = 18
-        private const val MAX_NODES = 500
+        private const val MAX_NODES = 1000
         private const val DIAGNOSTIC_INTERVAL_MS = 10000L
     }
 }
