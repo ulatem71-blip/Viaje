@@ -23,7 +23,7 @@ class MainActivity : Activity() {
             setPadding(pad, pad, pad, pad)
         }
         layout.addView(TextView(this).apply {
-            text = "Viaje Rentable 1.9\\nCaptura de ofertas por accesibilidad"
+            text = "Viaje Rentable 1.10\\nCaptura de ofertas por accesibilidad"
             textSize = 23f
         })
         layout.addView(TextView(this).apply {
