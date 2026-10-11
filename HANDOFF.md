@@ -1,26 +1,30 @@
 # HANDOFF
 
 ## Estado actual
-- Repositorio: `ulatem71-blip/Viaje`; aplicación Kotlin en `ViajeRentable-v1.5/` (versión 1.12).
-- `main` compila y pasa las pruebas en el CI (build, 6 tests de OfferParser, tests de Profitability, APK como artefacto `ViajeRentable-apk`).
-- Arreglos ya incluidos: errores de sintaxis en `OffersStore.kt` y `AcceptedTripStore.kt`; el regex de tramos del parser ahora captura la duración (horas, minutos y distancias en metros); el servicio registra OFERTA DETALLADA con el cálculo de rentabilidad.
-- El workflow publica el error de Gradle como anotación (`::error`) cuando la compilación falla; se pueden leer sin iniciar sesión en GitHub.
-- Nada de esto se ha probado todavía con la aplicación real de Uber Driver en un teléfono.
+- Repositorio: ulatem71-blip/Viaje; aplicación Android Kotlin en ViajeRentable-v1.5/.
+- Tarea actual: modo demo y simulador, versión 1.13 (versionCode 23).
+- Rama: chatgpt/modo-demo, creada desde la punta de main en 89de553bce88b05093445ece16eb19ca736ea608.
+- El modo demo solo calcula y registra una decisión hipotética; no interactúa con los controles de Uber.
+- No pude ejecutar git pull, sh ./gradlew assembleDebug ni sh ./gradlew test desde un checkout local: el entorno de terminal no puede resolver GitHub. La validación pendiente se realiza con GitHub Actions; no afirmar éxito hasta ver el resultado.
+- El paso del keystore y el secret VIAJE_DEBUG_KEYSTORE_BASE64 deben permanecer intactos.
 
 ## Reglas del proyecto
-- La app solo registra ofertas y calcula rentabilidad; nunca acepta ni rechaza viajes automáticamente.
-- No modificar el paso del keystore ni el secret `VIAJE_DEBUG_KEYSTORE_BASE64` del workflow.
-- Solo leer el paquete `com.ubercab.driver`.
+- El modo demo solo simula; cualquier aceptación real requiere una decisión explícita del dueño y se hace en una rama aparte, desactivada por defecto.
+- Solo se lee el paquete com.ubercab.driver.
+- No usar llamadas para pulsar/gesticular ni añadir permisos de gestos. El workflow contiene una comprobación de patrones de automatización de clics.
 - Kotlin: no escribir funciones locales de una línea seguidas de punto y coma; una instrucción por línea.
-- Crear una rama nueva por tarea, validar localmente antes del commit cuando sea posible, esperar CI verde y solo entonces actualizar `main` tras sincronizarlo.
-- Si el CI falla, reportar literalmente los errores de compilación o el bloque `What went wrong`; no adivinar.
+- Crear una rama nueva por tarea. Ejecutar sh ./gradlew assembleDebug y sh ./gradlew test antes de commit cuando el entorno lo permita. Si no es posible, decirlo claramente.
+- Subir la rama y esperar CI verde. Solo hacer merge a main cuando CI esté verde y después de sincronizar main.
+- Si el CI falla, copiar literalmente las líneas e: file:// o el bloque What went wrong; no adivinar la causa.
 
 ## Pendiente
-- Instalar el APK en un teléfono con Uber Driver y comparar, en "Ofertas registradas", tarifa, km y minutos contra la pantalla. Si no coinciden, copiar el texto de "Última pantalla de Uber" y ajustar el parser.
-- Confirmar los costos configurables (por defecto 18 km/L, 720 colones/L, 25 colones/km de mantenimiento, 2500 colones/h y 250 colones/km mínimos) y probar "Exportar CSV".
-- Decisión abierta: la descripción del proyecto menciona aceptar viajes rentables automáticamente, pero la app actual solo registra y calcula (ver Reglas). Antes de implementar cualquier aceptación automática hay que revisar los términos de Uber, que suelen prohibir herramientas de automatización.
+- Esperar a que termine el CI de chatgpt/modo-demo y comprobar que build, tests y comprobación de seguridad pasan.
+- Si falla, usar el error exacto del log para corregir la rama y volver a esperar el CI.
+- Con CI verde, sincronizar main, revisar que no haya cambios nuevos en conflicto y hacer merge del PR.
+- Actualizar este archivo con el enlace y el resultado final del CI después del merge.
+- Probar en dispositivo el modo demo y el simulador con texto real expuesto por Uber Driver; confirmar que el simulador no añade registros.
 
 ## Historial de cambios
-- 2026-10-11: creada la rama `chatgpt/verify-parser-ci` desde la punta de `main` para verificar la corrección del regex del parser incluida por Claude.
-- 2026-10-11: creado este archivo porque `HANDOFF.md` no existía en la raíz.
-- 2026-10-11 (Claude): arreglados errores de sintaxis de Kotlin, el regex de tramos y el registro detallado; CI en verde en `main`. Actualizado este archivo.
+- 2026-10-11: creada chatgpt/modo-demo desde la punta de main consultada a través de GitHub; no se pudo hacer git pull localmente por falta de conectividad de terminal.
+- 2026-10-11: versión 1.13/versionCode 23; agregado DemoDecision.kt, interruptor de modo demo, registro compatible con entradas antiguas, columnas decisionDemo/motivos, simulador y tests de decisión.
+- 2026-10-11: agregado al workflow el guard de seguridad para que falle si encuentra patrones de automatización de clics en ViajeRentable-v1.5/app/src/main. No se modificó el paso del keystore.
