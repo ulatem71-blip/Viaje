@@ -2,13 +2,16 @@ package com.viajerentable.app
 
 data class ParsedOffer(
     val fare: Double,
-    val pickupKm: Double,
-    val pickupMinutes: Double,
-    val tripKm: Double,
-    val tripMinutes: Double,
-    val pickupPlace: String?,
-    val destinationPlace: String?
-)
+    val pickupKm: Double? = null,
+    val pickupMinutes: Double? = null,
+    val tripKm: Double? = null,
+    val tripMinutes: Double? = null,
+    val pickupPlace: String? = null,
+    val destinationPlace: String? = null
+) {
+    val hasRouteDetails: Boolean
+        get() = pickupKm != null && pickupMinutes != null && tripKm != null && tripMinutes != null
+}
 
 object OfferParser {
     private val fareRegex = Regex("""(?:CRC\s*|₡\s*|\$\s*)([0-9][0-9,.]*)""", RegexOption.IGNORE_CASE)
@@ -16,21 +19,23 @@ object OfferParser {
 
     fun parse(rawText: String): ParsedOffer? {
         val segments = rawText.split("|").map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.isNotEmpty() }
-        val text = segments.joinToString(" | ")
-        val fareMatch = fareRegex.find(text) ?: return null
+        val fareMatch = fareRegex.find(segments.joinToString(" | ")) ?: return null
         val fare = parseNumber(fareMatch.groupValues[1]) ?: return null
-        val legs = legRegex.findAll(text).toList()
-        if (legs.size < 2) return null
+        if (fare <= 0) return null
+
+        val legs = legRegex.findAll(segments.joinToString(" | ")).toList()
+        // Compact Uber cards show a fare but no route yet. Keep them as fare-only
+        // records rather than discarding them or borrowing route data from another card.
+        if (legs.size < 2) return ParsedOffer(fare = fare)
+
         val pickupMatch = legs[0]
         val tripMatch = legs[1]
-        val pickupMinutes = pickupMatch.groupValues[1].toDoubleOrNull() ?: return null
-        val pickupKm = parseNumber(pickupMatch.groupValues[2]) ?: return null
-        val tripMinutes = tripMatch.groupValues[1].toDoubleOrNull() ?: return null
-        val tripKm = parseNumber(tripMatch.groupValues[2]) ?: return null
-        if (fare <= 0 || pickupMinutes < 0 || pickupKm < 0 || tripMinutes <= 0 || tripKm <= 0) return null
+        val pickupMinutes = pickupMatch.groupValues[1].toDoubleOrNull() ?: return ParsedOffer(fare)
+        val pickupKm = parseNumber(pickupMatch.groupValues[2]) ?: return ParsedOffer(fare)
+        val tripMinutes = tripMatch.groupValues[1].toDoubleOrNull() ?: return ParsedOffer(fare)
+        val tripKm = parseNumber(tripMatch.groupValues[2]) ?: return ParsedOffer(fare)
+        if (pickupMinutes < 0 || pickupKm < 0 || tripMinutes <= 0 || tripKm <= 0) return ParsedOffer(fare)
 
-        // Place labels are usually the text segments between pickup leg and trip leg,
-        // then between trip leg and action buttons. Only retain short visible labels.
         val pickupIndex = segments.indexOfFirst { legRegex.containsMatchIn(it) }
         val tripIndex = segments.indexOfLast { legRegex.containsMatchIn(it) }
         val pickupPlace = findPlace(segments, pickupIndex + 1, tripIndex)
@@ -43,7 +48,7 @@ object OfferParser {
             val s = parts[i].trim()
             if (s.length !in 3..100) continue
             if (fareRegex.containsMatchIn(s) || legRegex.containsMatchIn(s)) continue
-            if (s.contains("aceptar", true) || s.contains("rechazar", true)) continue
+            if (s.contains("aceptar", true) || s.contains("rechazar", true) || s.contains("interesa", true)) continue
             if (s.equals("UberX", true) || s.equals("Exclusivo", true) || s.equals("Viaje", true)) continue
             if (s.matches(Regex("[0-9.,() ]+"))) continue
             return s
