@@ -1,11 +1,11 @@
 # HANDOFF
 
 ## Estado actual
-- Repositorio: `ulatem71-blip/Viaje`; aplicación Kotlin en `ViajeRentable-v1.5/`.
-- Rama de trabajo: `chatgpt/verify-parser-ci`, creada desde `main` en `14aacef5958f1944ecbe7003464c24bfb956fe3f` después de actualizar la referencia a la punta actual de `main`.
-- La compilación `assembleDebug` pasó en el CI anterior. Las pruebas fallaron con tres `NullPointerException` en `OfferParserTest.kt` (líneas 5, 7 y 8).
-- Claude incorporó en `main` un cambio al regex de los tramos del parser y diagnósticos adicionales del workflow. Hace falta validar ese cambio en una ejecución nueva.
-- No pude ejecutar `git pull`, `sh ./gradlew assembleDebug` ni `sh ./gradlew test` en un checkout local: este entorno no puede resolver `github.com` desde la terminal. Se usa GitHub para consultar el repositorio y el CI para validar.
+- Repositorio: `ulatem71-blip/Viaje`; aplicación Kotlin en `ViajeRentable-v1.5/` (versión 1.12).
+- `main` compila y pasa las pruebas en el CI (build, 6 tests de OfferParser, tests de Profitability, APK como artefacto `ViajeRentable-apk`).
+- Arreglos ya incluidos: errores de sintaxis en `OffersStore.kt` y `AcceptedTripStore.kt`; el regex de tramos del parser ahora captura la duración (horas, minutos y distancias en metros); el servicio registra OFERTA DETALLADA con el cálculo de rentabilidad.
+- El workflow publica el error de Gradle como anotación (`::error`) cuando la compilación falla; se pueden leer sin iniciar sesión en GitHub.
+- Nada de esto se ha probado todavía con la aplicación real de Uber Driver en un teléfono.
 
 ## Reglas del proyecto
 - La app solo registra ofertas y calcula rentabilidad; nunca acepta ni rechaza viajes automáticamente.
@@ -16,12 +16,11 @@
 - Si el CI falla, reportar literalmente los errores de compilación o el bloque `What went wrong`; no adivinar.
 
 ## Pendiente
-- Ejecutar `sh ./gradlew assembleDebug` y `sh ./gradlew test` localmente en un entorno con acceso al repo.
-- Confirmar que el nuevo CI en `chatgpt/verify-parser-ci` pasa build y tests.
-- Si las pruebas siguen fallando, usar el log nuevo para corregir el parser o las expectativas de los tests en esta rama.
-- Actualizar este archivo con el enlace y resultado final del CI.
-- No hacer merge a `main` hasta que el CI esté verde y se haya sincronizado `main`.
+- Instalar el APK en un teléfono con Uber Driver y comparar, en "Ofertas registradas", tarifa, km y minutos contra la pantalla. Si no coinciden, copiar el texto de "Última pantalla de Uber" y ajustar el parser.
+- Confirmar los costos configurables (por defecto 18 km/L, 720 colones/L, 25 colones/km de mantenimiento, 2500 colones/h y 250 colones/km mínimos) y probar "Exportar CSV".
+- Decisión abierta: la descripción del proyecto menciona aceptar viajes rentables automáticamente, pero la app actual solo registra y calcula (ver Reglas). Antes de implementar cualquier aceptación automática hay que revisar los términos de Uber, que suelen prohibir herramientas de automatización.
 
 ## Historial de cambios
 - 2026-10-11: creada la rama `chatgpt/verify-parser-ci` desde la punta de `main` para verificar la corrección del regex del parser incluida por Claude.
 - 2026-10-11: creado este archivo porque `HANDOFF.md` no existía en la raíz.
+- 2026-10-11 (Claude): arreglados errores de sintaxis de Kotlin, el regex de tramos y el registro detallado; CI en verde en `main`. Actualizado este archivo.
