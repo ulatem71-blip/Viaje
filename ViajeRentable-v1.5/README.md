@@ -1,18 +1,12 @@
-# Viaje Rentable 1.6 — captura local de ofertas
+# Viaje Rentable 1.12
 
-Aplicación Android en Kotlin. El servicio de accesibilidad examina el árbol de texto que Uber Driver expone y registra localmente los cambios cuyo contenido contiene señales de precio y de viaje. También conserva diagnósticos con el número de nodos y nodos con texto. No pulsa controles ni acepta/rechaza viajes.
+App Android Kotlin que registra texto accesible de Uber Driver y calcula rentabilidad localmente. No pulsa controles ni acepta/rechaza viajes.
 
-## Instalar y probar
+- **Actualizar datos de Uber:** actualiza la vista del texto expuesto por Accesibilidad (no es una imagen).
+- **OFERTA DETALLADA / OFERTA COMPACTA:** historial local independiente offers_log, hasta 200 entradas completas; las más antiguas se eliminan por entrada.
+- **Ofertas registradas** y **Exportar CSV:** muestra las ofertas y comparte CSV con fecha, tarifaCRC, recogidaKm, recogidaMin, viajeKm, viajeMin, netoCRC, netoPorKm, netoPorHora y recomendado.
+- **Guardar como viaje aceptado:** conserva el motivo y texto visible de Uber en el teléfono.
+- **Costos configurables:** kmPerLiter=18, fuelPricePerLiter=720, maintenancePerKm=25, minimumNetPerHour=2500 y minimumNetPerKm=250. Se usan en nuevos cálculos.
+- **Diagnóstico de captura:** log independiente de 4000 caracteres.
 
-1. Abre esta carpeta en Android Studio o descarga el APK generado por GitHub Actions.
-2. Instala y abre Viaje Rentable.
-3. Pulsa **Abrir ajustes de accesibilidad** y habilita Viaje Rentable.
-4. Regresa a la aplicación y deja abierto el registro.
-5. Cuando aparezca una oferta, pulsa **Actualizar registro**. Busca una entrada **OFERTA CANDIDATA**.
-6. Comprueba los textos guardados contra la oferta visible. Si no aparece, el árbol de accesibilidad puede no exponer precio/distancia o la detección puede necesitar ajustar las señales según el texto real.
-
-## Privacidad y límites
-
-El registro se almacena en las preferencias privadas de esta aplicación en el dispositivo. Una entrada candidata puede contener texto visible de una oferta, así que borra el registro si no deseas conservarlo. La detección usa señales heurísticas y no garantiza reconocer todas las ofertas; el número de nodos por sí solo no identifica una oferta. No se acepta ni se rechaza ningún viaje automáticamente.
-
-La compilación de GitHub Actions genera un APK de depuración y ejecuta pruebas unitarias. La instalación y la lectura real deben verificarse en un dispositivo con Uber Driver, porque el contenido expuesto depende de la versión y de la pantalla.
+Habilita el servicio de Accesibilidad, abre Uber Driver y deja una oferta visible. La lectura depende de los datos que Uber exponga; no se envían registros a servidores.
