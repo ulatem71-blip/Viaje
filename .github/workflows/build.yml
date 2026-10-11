@@ -20,6 +20,8 @@ jobs:
           mkdir -p "$HOME/.android"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
+      - name: Ensure app contains no click automation
+        run: '! grep -rnE "performAction|dispatchGesture|ACTION_CLICK|canPerformGestures" ViajeRentable-v1.5/app/src/main'
       - name: Build installable debug APK
         working-directory: ViajeRentable-v1.5
         shell: bash
