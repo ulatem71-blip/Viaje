@@ -36,13 +36,15 @@ class OfferAccessibilityService : AccessibilityService() {
             for (window in windowsSnapshot) {
                 if (counter.nodes >= MAX_NODES) break
                 val windowRoot = try { window.root } catch (_: Exception) { null } ?: continue
-                try { collectText(windowRoot, texts, counter, 0) } finally { windowRoot.recycle() }
+                try {
+                    if (windowRoot.packageName?.toString() == UBER_DRIVER_PACKAGE) collectText(windowRoot, texts, counter, 0)
+                } finally { windowRoot.recycle() }
             }
 
             if (texts.isEmpty()) {
                 val root = rootInActiveWindow
                 if (root != null) {
-                    try { collectText(root, texts, counter, 0) } finally { root.recycle() }
+                    try { if (root.packageName?.toString() == UBER_DRIVER_PACKAGE) collectText(root, texts, counter, 0) } finally { root.recycle() }
                 }
             }
 
@@ -64,7 +66,7 @@ class OfferAccessibilityService : AccessibilityService() {
                     if (parsed.hasRouteDetails) {
                         val result = Profitability.calculate(
                             Offer(parsed.fare, parsed.pickupKm!!, parsed.pickupMinutes!!, parsed.tripKm!!, parsed.tripMinutes!!),
-                            DriverCosts()
+                            DriverCostsStore.read(this)
                         )
                         LogStore.add(this,
                             "OFERTA DETALLADA [$timestamp]\n" +
