@@ -169,7 +169,7 @@ class OfferParserTest {
     @Test
     fun textWithoutButtonProducesNoOffers() {
         val offers = OfferParser.parseAll(
-            "UberX | CRC800.00 | Me interesa | UberX | CRC3,308.35"
+            "UberX | CRC800.00 | UberX | CRC3,308.35"
         )
 
         assertTrue(offers.isEmpty())
