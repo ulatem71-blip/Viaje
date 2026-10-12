@@ -71,11 +71,19 @@ class OfferAccessibilityService : AccessibilityService() {
                 .distinct()
             val combined = normalized.joinToString(" | ")
             AcceptedTripStore.updateLatestScreen(this, combined)
-            val parsed = OfferParser.parse(combined)
-            val now = System.currentTimeMillis()
 
-            if (parsed != null && offerDeduplicator.shouldRecord(parsed, now)) {
-                val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(now))
+            val parsedOffers = OfferParser.parseAll(combined)
+            val now = System.currentTimeMillis()
+            val timestamp = SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss",
+                Locale.getDefault()
+            ).format(Date(now))
+
+            for (parsed in parsedOffers) {
+                if (!offerDeduplicator.shouldRecord(parsed, now)) {
+                    continue
+                }
+
                 if (parsed.hasRouteDetails) {
                     val costs = DriverCostsStore.read(this)
                     val result = Profitability.calculate(
@@ -122,6 +130,16 @@ class OfferAccessibilityService : AccessibilityService() {
                 }
             }
 
+            if (parsedOffers.size >= 2) {
+                val tariffs = parsedOffers.map { fmt(it.fare) }.sorted().joinToString(",")
+                val preview = combined.take(MULTI_CARD_TEXT_LIMIT)
+                LogStore.add(
+                    this,
+                    "VARIAS TARJETAS [$timestamp]; n=${parsedOffers.size}; " +
+                        "tarifas=$tariffs; texto=$preview"
+                )
+            }
+
             if (now - lastDiagnosticAt >= DIAGNOSTIC_INTERVAL_MS) {
                 lastDiagnosticAt = now
                 val hasFare = OfferParser.containsFare(combined)
@@ -130,8 +148,8 @@ class OfferAccessibilityService : AccessibilityService() {
                     "DIAGNOSTICO; evento=${event.eventType}; ventanas=${windowsSnapshot.size}; " +
                         "nodos=${counter.nodes}; nodosConTexto=${normalized.size}; " +
                         "textoAccesible=${normalized.isNotEmpty()}; contieneTarifa=$hasFare; " +
-                        "contieneTramo=$hasRoute; ofertaDetectada=${parsed != null}; " +
-                        "tipoOferta=${parsed?.let { if (it.hasRouteDetails) "detallada" else "compacta" } ?: "ninguna"}"
+                        "contieneTramo=$hasRoute; ofertasDetectadas=${parsedOffers.size}; " +
+                        "tipoOferta=${parsedOffers.joinToString(",") { if (it.hasRouteDetails) "detallada" else "compacta" }}"
                 )
             }
         } catch (e: Exception) {
@@ -184,5 +202,6 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val MAX_TREE_DEPTH = 18
         private const val MAX_NODES = 1000
         private const val DIAGNOSTIC_INTERVAL_MS = 30000L
+        private const val MULTI_CARD_TEXT_LIMIT = 700
     }
 }
