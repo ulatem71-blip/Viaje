@@ -59,14 +59,16 @@ object LogStore {
 
         while (rows.joinToString("\n").length > LIMIT && rows.isNotEmpty()) {
             val multiCardCount = rows.count { it.startsWith("VARIAS TARJETAS") }
-            val oldestDiagnostic = rows.indexOfFirst {
-                it.startsWith("DIAGNOSTICO") ||
-                    (it.startsWith("VARIAS TARJETAS") && multiCardCount > MAX_MULTI_CARD_LINES)
-            }
+            val oldestDiagnostic = rows.indexOfFirst { it.startsWith("DIAGNOSTICO") }
             if (oldestDiagnostic >= 0) {
                 rows.removeAt(oldestDiagnostic)
             } else {
-                rows.removeAt(0)
+                val oldestNonMultiCard = rows.indexOfFirst { !it.startsWith("VARIAS TARJETAS") }
+                if (oldestNonMultiCard >= 0) {
+                    rows.removeAt(oldestNonMultiCard)
+                } else {
+                    break
+                }
             }
         }
         preferences.edit().putString(KEY, rows.joinToString("\n")).apply()
