@@ -1,6 +1,10 @@
 # HANDOFF
 
 ## Estado actual
+- Tarea actual: separar tarjetas de ofertas múltiples en OfferParser.parseAll, versión 1.14.2 (versionCode 26).
+- Rama: chatgpt/tarjetas-separadas, basada en la punta remota consultada de main: ebd73eb2f637219d55b359cb115486a94c8df7fd.
+- `git pull main` y validación local no disponibles en este entorno; se consultó el SHA remoto y la validación debe completarse en Actions.
+- No se modifican el guard anti-clics del workflow ni el paso Restore stable APK signing key; no se añadieron acciones sobre Uber.
 - Repositorio: ulatem71-blip/Viaje; aplicación Android Kotlin en ViajeRentable-v1.5/.
 - Tarea actual: deduplicación de ofertas y limitación de diagnósticos, versión 1.14 (versionCode 24).
 - Rama: chatgpt/dedupe-ofertas, creada desde la punta remota de main consultada por API: 2794d1109a49cdda9b61b9536ed12681a09d3a4d.
@@ -27,6 +31,7 @@
 - Probar en dispositivo con texto real expuesto por Uber Driver y verificar que 27 ofertas únicas ya no generan entradas repetidas por alternancia.
 
 ## Historial de cambios
+- 2026-10-12: iniciado trabajo de tarjetas separadas; parseAll agrupa por botón y procesa cada tarjeta por separado. Diagnóstico VARIAS TARJETAS limitado a 60 s, tarifas repetidas suprimidas y conservación de cinco líneas recientes.
 - 2026-10-11: versión 1.14/versionCode 24; agregado OfferDeduplicator.kt con huella detallada por tarifa/ruta, supresión compacta por tarifa, limpieza por ventana y reloj inyectable.
 - 2026-10-11: OfferAccessibilityService ahora deduplica antes de persistir o evaluar demo; diagnósticos limitados a uno cada 30 s y priorización de ofertas en LogStore.
 - 2026-10-11: agregados cinco tests solicitados más una prueba del reloj inyectable. El workflow y el paso del keystore no se modificaron.
