@@ -25,9 +25,9 @@
 
 ## Pendiente
 - Ejecutar sh ./gradlew assembleDebug y sh ./gradlew test desde un checkout completo; el directorio local disponible solo contiene README y no incluye Gradle Wrapper ni fuentes.
-- CI del código completado en verde; validar también el commit que registra esta actualización de HANDOFF.
-- Cuando exista un checkout con acceso a GitHub, hacer git pull de main, verificar conflictos y solo entonces mergear el PR con CI verde.
-- Después del merge, actualizar HANDOFF.md con el SHA y el enlace de Actions.
+- CI verde para el código de tarjetas separadas en https://github.com/ulatem71-blip/Viaje/actions/runs/38302631120 (run #107): guard anti-clics, assembleDebug, test y artefacto APK pasaron.
+- No se hizo merge: aunque el run #107 está verde, el entorno actual no tiene checkout local ni `gradlew`, así que no se pudo ejecutar git pull de main. Hacerlo en un checkout completo antes de mergear.
+- Tras sincronizar main localmente y el merge autorizado, actualizar HANDOFF.md con el SHA de merge y el enlace de Actions.
 - Probar en dispositivo con texto real expuesto por Uber Driver y verificar que 27 ofertas únicas ya no generan entradas repetidas por alternancia.
 
 ## Historial de cambios
@@ -36,3 +36,5 @@
 - 2026-10-11: OfferAccessibilityService ahora deduplica antes de persistir o evaluar demo; diagnósticos limitados a uno cada 30 s y priorización de ofertas en LogStore.
 - 2026-10-11: agregados cinco tests solicitados más una prueba del reloj inyectable. El workflow y el paso del keystore no se modificaron.
 - 2026-10-11: CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38178274478; assembleDebug, test, guard anti-clics y subida del APK completados.
+- 2026-10-12: parseAll separa tarjetas por botón; el servicio procesa cada tarjeta independientemente; añadido diagnóstico VARIAS TARJETAS y tests. Versión 1.14.2/versionCode 26.
+- 2026-10-12: CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38302631120 (run #107); assembleDebug, test, guard anti-clics y APK pasaron.
