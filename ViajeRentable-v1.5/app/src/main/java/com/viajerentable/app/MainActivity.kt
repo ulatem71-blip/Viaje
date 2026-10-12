@@ -13,7 +13,7 @@ class MainActivity:Activity(){
  private lateinit var status:TextView;private lateinit var screen:TextView;private lateinit var trips:TextView;private lateinit var offers:TextView;private lateinit var reason:EditText;private lateinit var logs:TextView
  private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText;private lateinit var demoSwitch:Switch;private lateinit var simulationInput:EditText;private lateinit var simulationOutput:TextView
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val pad=(16*resources.displayMetrics.density).toInt();val c=LinearLayout(this).apply{orientation=1;setPadding(pad,pad,pad,pad)}
- c.addView(TextView(this).apply{text="Viaje Rentable 1.13";textSize=25f});status=TextView(this);c.addView(status)
+ c.addView(TextView(this).apply{text="Viaje Rentable ${appVersion()}";textSize=25f});status=TextView(this);c.addView(status)
  c.addView(Button(this).apply{text="Abrir ajustes de accesibilidad";setOnClickListener{startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))}})
  c.addView(Button(this).apply{text="Actualizar datos de Uber";setOnClickListener{refresh()}})
  c.addView(title("Última pantalla de Uber"));c.addView(TextView(this).apply{text="Texto accesible de Uber, no una captura de imagen."});screen=TextView(this).apply{setTextIsSelectable(true)};c.addView(screen)
@@ -30,6 +30,13 @@ class MainActivity:Activity(){
  c.addView(title("Diagnóstico de captura"));logs=TextView(this).apply{setTextIsSelectable(true)};c.addView(logs);c.addView(Button(this).apply{text="Borrar diagnósticos";setOnClickListener{LogStore.clear(this@MainActivity);refresh()}})
  val scroll=ScrollView(this);scroll.addView(c);setContentView(scroll);loadCosts();refresh()}
  override fun onResume(){super.onResume();if(::status.isInitialized)refresh()}
+ private fun appVersion():String {
+  return try {
+   packageManager.getPackageInfo(packageName,0).versionName ?: "?"
+  } catch (e:Exception) {
+   "?"
+  }
+ }
  private fun title(s:String)=TextView(this).apply{text=s;textSize=18f;setPadding(0,16,0,4)}
  private fun input(parent:LinearLayout,label:String,default:String):EditText{parent.addView(TextView(this).apply{text=label});return EditText(this).apply{setText(default);inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL;parent.addView(this,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT))}}
  private fun loadCosts(){val x=DriverCostsStore.read(this);kmL.setText(x.kmPerLiter.toString());fuel.setText(x.fuelPricePerLiter.toString());maint.setText(x.maintenancePerKm.toString());hour.setText(x.minimumNetPerHour.toString());km.setText(x.minimumNetPerKm.toString())}
