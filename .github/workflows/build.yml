@@ -26,9 +26,9 @@ jobs:
           set -eu
           source_dir="ViajeRentable-v1.5/app/src"
           click_method='performAction'
-          click_constant='ACTION_'\''CLICK'
-          gesture_method='dispatch'\''Gesture'
-          gesture_capability='canPerform'\''Gestures'
+          click_constant='ACTION_''CLICK'
+          gesture_method='dispatch''Gesture'
+          gesture_capability='canPerform''Gestures'
           if grep -rnE "$gesture_method|$gesture_capability" "$source_dir"; then
             echo "Gesture-based automation is forbidden."
             exit 1
