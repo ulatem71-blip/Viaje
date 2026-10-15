@@ -1,6 +1,7 @@
 package com.viajerentable.app
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.graphics.Rect
@@ -478,6 +479,7 @@ class OfferAccessibilityService : AccessibilityService() {
         )
         if (wasEnabled) {
             OfferClicker.playSafetyWarning()
+            sendBroadcast(Intent(ACTION_AUTO_ACCEPTANCE_DISABLED).setPackage(packageName))
         }
     }
 
@@ -615,6 +617,7 @@ class OfferAccessibilityService : AccessibilityService() {
     private class Counter(var nodes: Int = 0)
 
     companion object {
+        const val ACTION_AUTO_ACCEPTANCE_DISABLED = "com.viajerentable.app.AUTO_ACCEPTANCE_DISABLED"
         private const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
         private const val MAX_TREE_DEPTH = 18
         private const val MAX_NODES = 1000
