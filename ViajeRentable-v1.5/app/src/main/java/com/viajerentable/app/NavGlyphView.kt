@@ -21,7 +21,7 @@ class NavGlyphView(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val colors = VisualTheme.palette(context)
-        paint.color = if (isSelected) colors.brand else colors.muted
+        paint.color = if (isSelected) colors.darkText else colors.muted
         val scale = resources.displayMetrics.density
         canvas.save()
         canvas.scale(scale, scale)

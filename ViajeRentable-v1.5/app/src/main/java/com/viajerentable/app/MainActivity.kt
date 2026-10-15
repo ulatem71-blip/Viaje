@@ -252,7 +252,15 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         heading.addView(sectionTitle("Ofertas registradas"), LinearLayout.LayoutParams(0, dp(48), 1f))
-        heading.addView(actionButton("Exportar CSV", primary = false) { exportCsv() })
+        heading.addView(
+            actionButton("Exportar CSV", primary = false) { exportCsv() },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dp(44)
+            ).apply {
+                bottomMargin = dp(8)
+            }
+        )
         content.addView(heading)
         val filters = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -849,6 +857,7 @@ class MainActivity : Activity() {
             setText(default)
             textSize = 16f
             minHeight = dp(52)
+            setPadding(dp(14), dp(10), dp(14), dp(10))
             setTextColor(palette.text)
             setHintTextColor(palette.muted)
             background = roundedDrawable(palette.card, 12, palette.border, 1.5f)
