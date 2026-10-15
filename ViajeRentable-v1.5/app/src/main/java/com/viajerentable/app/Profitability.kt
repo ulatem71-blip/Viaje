@@ -13,7 +13,10 @@ data class DriverCosts(
     val fuelPricePerLiter: Double = 720.0,
     val maintenancePerKm: Double = 25.0,
     val minimumNetPerHour: Double = 2500.0,
-    val minimumNetPerKm: Double = 250.0
+    val minimumNetPerKm: Double = 250.0,
+    val acEnabled: Boolean = false,
+    val acExtraPercent: Double = 10.0,
+    val maxPickupKm: Double = 2.0
 )
 
 data class ProfitResult(
@@ -21,6 +24,7 @@ data class ProfitResult(
     val totalMinutes: Double,
     val fuelCost: Double,
     val maintenanceCost: Double,
+    val fuelCostPerKm: Double = 0.0,
     val net: Double,
     val netPerKm: Double,
     val netPerHour: Double,
@@ -33,12 +37,14 @@ object Profitability {
         require(costs.kmPerLiter > 0 && costs.fuelPricePerLiter >= 0 && costs.maintenancePerKm >= 0)
         val km = offer.pickupKm + offer.tripKm
         val minutes = offer.pickupMinutes + offer.tripMinutes
-        val fuel = km / costs.kmPerLiter * costs.fuelPricePerLiter
+        val acMultiplier = if (costs.acEnabled) 1.0 + costs.acExtraPercent / 100.0 else 1.0
+        val fuelCostPerKm = costs.fuelPricePerLiter / costs.kmPerLiter * acMultiplier
+        val fuel = km * fuelCostPerKm
         val maintenance = km * costs.maintenancePerKm
         val net = offer.fare - fuel - maintenance
         val perKm = if (km > 0) net / km else 0.0
         val perHour = if (minutes > 0) net / (minutes / 60.0) else 0.0
-        return ProfitResult(km, minutes, fuel, maintenance, net, perKm, perHour,
+        return ProfitResult(km, minutes, fuel, maintenance, fuelCostPerKm, net, perKm, perHour,
             net >= 0 && perKm >= costs.minimumNetPerKm && perHour >= costs.minimumNetPerHour)
     }
 }
