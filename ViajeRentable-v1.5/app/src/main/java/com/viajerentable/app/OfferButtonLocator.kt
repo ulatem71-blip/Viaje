@@ -27,7 +27,8 @@ data class CardTarget(
 data class AmbiguousCard(
     val buttonType: String,
     val reason: String,
-    val cardText: String
+    val cardText: String,
+    val boundsInScreen: ScreenBounds
 )
 
 data class OfferButtonLocationResult(
@@ -78,7 +79,7 @@ object OfferButtonLocator {
                 }
             }
         }
-        return OfferButtonLocationResult(cards, ambiguous)
+        return OfferButtonLocationResult(cards, ambiguous.distinctBy { it.boundsInScreen to it.reason })
     }
 
     private fun locateForButton(
@@ -118,14 +119,14 @@ object OfferButtonLocator {
             } else {
                 "más de un botón Aceptar"
             }
-            ambiguous.add(AmbiguousCard(buttonType, reason, selectedText))
+            ambiguous.add(AmbiguousCard(buttonType, reason, selectedText, selected.boundsInScreen))
             return
         }
 
         val parsed = OfferParser.parseAll(appendButton(selectedText, buttonType))
         val parsedForCard = parsed.filter { it.fare > 0.0 }
         if (parsedForCard.size != 1 || !parsedForCard.single().hasRouteDetails) {
-            ambiguous.add(AmbiguousCard(buttonType, "tarjeta no parseable de forma única", selectedText))
+            ambiguous.add(AmbiguousCard(buttonType, "tarjeta no parseable de forma única", selectedText, selected.boundsInScreen))
             return
         }
 
