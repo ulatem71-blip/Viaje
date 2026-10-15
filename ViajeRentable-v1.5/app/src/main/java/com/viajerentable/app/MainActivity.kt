@@ -453,6 +453,7 @@ class MainActivity : Activity() {
     private fun showPage(index: Int) {
         activePage = index.coerceIn(0, pageViews.lastIndex)
         for (i in pageViews.indices) {
+            pageViews[i].clearAnimation()
             pageViews[i].visibility = if (i == activePage) View.VISIBLE else View.GONE
             tabButtons[i].isSelected = i == activePage
             tabButtons[i].getChildAt(0).isSelected = i == activePage
@@ -467,7 +468,7 @@ class MainActivity : Activity() {
         }
         pageViews[activePage].startAnimation(AlphaAnimation(0.86f, 1f).apply {
             duration = 200
-            fillAfter = true
+            fillAfter = false
         })
         refreshAll()
     }
@@ -1065,7 +1066,7 @@ class MainActivity : Activity() {
         }
         root.addView(navigation, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(72)
+            dp(80)
         ).apply {
             setMargins(dp(12), dp(4), dp(12), dp(8))
         })
