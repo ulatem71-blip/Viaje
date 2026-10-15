@@ -169,10 +169,11 @@ class MainActivity : Activity() {
 
     private fun buildHomePage() {
         val content = pageContent(homePage)
+        val powerCard = card()
         systemPowerSwitch = Switch(this).apply {
-            textSize = 22f
+            textSize = 20f
             minHeight = dp(72)
-            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
             isChecked = SystemPowerStore.isOn(this@MainActivity)
             text = if (isChecked) "Sistema ENCENDIDO" else "Sistema APAGADO"
             setOnCheckedChangeListener { _, checked ->
@@ -180,12 +181,11 @@ class MainActivity : Activity() {
                 refreshAll()
             }
         }
-        content.addView(systemPowerSwitch, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ))
+        powerCard.addView(systemPowerSwitch)
         lastPowerChangeText = bodyText("")
-        content.addView(lastPowerChangeText)
+        lastPowerChangeText.textSize = 12f
+        powerCard.addView(lastPowerChangeText)
+        content.addView(powerCard)
         content.addView(sectionTitle("Servicio"))
         statusText = TextView(this).apply {
             textSize = 12f
@@ -400,6 +400,49 @@ class MainActivity : Activity() {
             refreshDiagnostics()
         })
         content.addView(trialCard)
+        collapseDiagnosticSections(content)
+        simulationOutput.typeface = Typeface.MONOSPACE
+        simulationOutput.textSize = 12f
+        liveDiagnosticText.typeface = Typeface.MONOSPACE
+        liveDiagnosticText.textSize = 12f
+        manualTripsText.typeface = Typeface.MONOSPACE
+        manualTripsText.textSize = 12f
+        treeDumpText.typeface = Typeface.MONOSPACE
+        treeDumpText.textSize = 12f
+        trialCountersText.typeface = Typeface.MONOSPACE
+        trialCountersText.textSize = 12f
+    }
+
+    private fun collapseDiagnosticSections(content: LinearLayout) {
+        var index = 0
+        while (index + 1 < content.childCount) {
+            val heading = content.getChildAt(index) as? TextView
+            val section = content.getChildAt(index + 1)
+            if (heading == null || section !is LinearLayout) {
+                index += 1
+                continue
+            }
+            content.removeViewAt(index + 1)
+            content.removeViewAt(index)
+            val group = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            heading.text = "▸  ${heading.text}"
+            heading.minHeight = dp(48)
+            heading.setPadding(dp(8), dp(10), dp(8), dp(10))
+            heading.background = roundedDrawable(palette.card, 12, palette.border, 1.5f)
+            section.visibility = View.GONE
+            heading.setOnClickListener {
+                val opening = section.visibility != View.VISIBLE
+                section.visibility = if (opening) View.VISIBLE else View.GONE
+                heading.text = (if (opening) "▾  " else "▸  ") + heading.text.toString().removePrefix("▸  ").removePrefix("▾  ")
+            }
+            group.addView(heading)
+            group.addView(section)
+            group.setPadding(0, 0, 0, dp(8))
+            content.addView(group, index)
+            index += 1
+        }
     }
 
     private fun showPage(index: Int) {
