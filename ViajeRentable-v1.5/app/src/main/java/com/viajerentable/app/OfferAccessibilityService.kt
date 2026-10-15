@@ -199,7 +199,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         ambiguous.cardText + " | " + ambiguous.buttonType
                     ).firstOrNull()
                     val decision = parsed?.let { evaluateTrialDecision(it) }
-                    if (ambiguous.buttonType == "Aceptar" && decision?.decision == Decision.ACEPTARIA) {
+                    if (decision?.decision == Decision.ACEPTARIA) {
                         OfferButtonTrialStore.incrementAcceptedWithoutButton(this)
                         LogStore.add(
                             this,
@@ -226,20 +226,28 @@ class OfferAccessibilityService : AccessibilityService() {
                     }
 
                     val decision = evaluateTrialDecision(parsed)
-                    val storedMatch = OffersStore.read(this).firstOrNull {
-                        kotlin.math.abs(it.parsed.fare - parsed.fare) < 0.01
+                    val storedOffers = OffersStore.read(this)
+                    val routeMatch = storedOffers.firstOrNull {
+                        sameRoute(it.parsed, parsed)
                     }
-                    if (storedMatch == null) {
+                    val exactFareMatch = storedOffers.any {
+                        kotlin.math.abs(it.parsed.fare - target.fare) < 0.01
+                    }
+                    if (routeMatch != null &&
+                        kotlin.math.abs(routeMatch.parsed.fare - target.fare) >= 0.01
+                    ) {
                         OfferButtonTrialStore.incrementDiscrepancies(this)
                         LogStore.add(
                             this,
-                            "ENSAYO: DISCREPANCIA tarifa ${fmt(parsed.fare)} vs no registrada"
+                            "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs ${fmt(routeMatch.parsed.fare)}"
                         )
-                    } else if (kotlin.math.abs(storedMatch.parsed.fare - target.fare) >= 0.01) {
+                    } else if (routeMatch == null && !exactFareMatch) {
                         OfferButtonTrialStore.incrementDiscrepancies(this)
+                        val storedFare = storedOffers.firstOrNull()?.parsed?.fare
+                        val registered = storedFare?.let { fmt(it) } ?: "no registrada"
                         LogStore.add(
                             this,
-                            "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs ${fmt(storedMatch.parsed.fare)}"
+                            "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs $registered"
                         )
                     }
 
@@ -275,6 +283,16 @@ class OfferAccessibilityService : AccessibilityService() {
                 root.recycle()
             }
         }
+    }
+
+    private fun sameRoute(first: ParsedOffer, second: ParsedOffer): Boolean {
+        if (!first.hasRouteDetails || !second.hasRouteDetails) {
+            return false
+        }
+        return kotlin.math.abs(first.pickupKm!! - second.pickupKm!!) < 0.01 &&
+            kotlin.math.abs(first.pickupMinutes!! - second.pickupMinutes!!) < 0.01 &&
+            kotlin.math.abs(first.tripKm!! - second.tripKm!!) < 0.01 &&
+            kotlin.math.abs(first.tripMinutes!! - second.tripMinutes!!) < 0.01
     }
 
     private fun evaluateTrialDecision(offer: ParsedOffer): DemoResult {
