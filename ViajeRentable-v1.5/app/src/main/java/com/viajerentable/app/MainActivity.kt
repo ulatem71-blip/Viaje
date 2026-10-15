@@ -6,6 +6,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -14,10 +17,12 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AlphaAnimation
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
@@ -31,6 +36,9 @@ import java.util.Locale
 
 class MainActivity : Activity() {
     private lateinit var statusText: TextView
+    private lateinit var systemPowerSwitch: Switch
+    private lateinit var lastPowerChangeText: TextView
+    private lateinit var pauseBanner: TextView
     private lateinit var latestOfferCard: LinearLayout
     private lateinit var offersPage: LinearLayout
     private lateinit var costsPage: LinearLayout
@@ -58,9 +66,12 @@ class MainActivity : Activity() {
     private lateinit var saveCostsButton: Button
 
     private val pageViews = mutableListOf<LinearLayout>()
-    private val tabButtons = mutableListOf<Button>()
+    private val tabButtons = mutableListOf<LinearLayout>()
     private val pageNames = listOf("Inicio", "Ofertas", "Costos", "Diagnóstico")
     private var activePage = 0
+    private var offerFilter = "Todas"
+    private val palette: VisualTheme.Palette
+        get() = VisualTheme.palette(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,34 +103,21 @@ class MainActivity : Activity() {
         }
         root.addView(header)
 
-        val tabScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
+        pauseBanner = TextView(this).apply {
+            text = "EN PAUSA"
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), 0, dp(16), 0)
+            minHeight = dp(28)
+            background = roundedDrawable(palette.reject, 0)
+            visibility = View.GONE
         }
-        tabs = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(8), dp(4), dp(8), dp(8))
-        }
-        for (name in pageNames) {
-            val tab = Button(this).apply {
-                text = name
-                textSize = 16f
-                minHeight = dp(48)
-                isAllCaps = false
-                setOnClickListener {
-                    val index = pageNames.indexOf(name)
-                    showPage(index)
-                }
-            }
-            tabButtons.add(tab)
-            tabs.addView(tab, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                marginEnd = dp(6)
-            })
-        }
-        tabScroll.addView(tabs)
-        root.addView(tabScroll)
+        root.addView(pauseBanner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(28)
+        ))
 
         pageHost = FrameLayout(this)
         root.addView(pageHost, LinearLayout.LayoutParams(
@@ -145,6 +143,7 @@ class MainActivity : Activity() {
         buildOffersPage()
         buildCostsPage()
         buildDiagnosticsPage()
+        buildBottomNavigation(root)
         setContentView(root)
     }
 
@@ -160,7 +159,8 @@ class MainActivity : Activity() {
         }
         wrapper.addView(scroll, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+            0,
+            1f
         ))
         return wrapper
     }
@@ -172,18 +172,40 @@ class MainActivity : Activity() {
 
     private fun buildHomePage() {
         val content = pageContent(homePage)
-        content.addView(sectionTitle("Servicio de accesibilidad"))
-        val serviceCard = card()
-        statusText = TextView(this).apply {
-            textSize = 20f
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(dp(14), dp(12), dp(14), dp(12))
+        val powerCard = card().apply {
+            tag = "master_power_card"
         }
-        serviceCard.addView(statusText)
-        serviceCard.addView(actionButton("Abrir ajustes de accesibilidad") {
+        systemPowerSwitch = Switch(this).apply {
+            textSize = 20f
+            minHeight = dp(72)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            isChecked = SystemPowerStore.isOn(this@MainActivity)
+            text = if (isChecked) "Sistema ENCENDIDO" else "Sistema APAGADO"
+            setOnCheckedChangeListener { _, checked ->
+                SystemPowerStore.setOn(this@MainActivity, checked)
+                refreshAll()
+            }
+        }
+        powerCard.addView(systemPowerSwitch)
+        lastPowerChangeText = bodyText("")
+        lastPowerChangeText.textSize = 12f
+        powerCard.addView(lastPowerChangeText)
+        content.addView(powerCard)
+        content.addView(sectionTitle("Servicio"))
+        statusText = TextView(this).apply {
+            textSize = 12f
+            setTypeface(typeface, Typeface.BOLD)
+            contentDescription = "Estado del servicio de accesibilidad"
+        }
+        val serviceRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        serviceRow.addView(statusText)
+        serviceRow.addView(actionButton("Ajustes", primary = false) {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
-        content.addView(serviceCard)
+        content.addView(serviceRow)
 
         content.addView(sectionTitle("Última oferta"))
         latestOfferCard = card()
@@ -216,12 +238,10 @@ class MainActivity : Activity() {
         content.addView(switchesCard)
 
         content.addView(sectionTitle("Contadores de hoy"))
-        val dailyCard = card()
-        dailyCard.addView(TextView(this).apply {
-            tag = "daily_counters"
-            textSize = 18f
-            setPadding(dp(14), dp(12), dp(14), dp(12))
-        })
+        val dailyCard = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            tag = "daily_counter_row"
+        }
         content.addView(dailyCard)
     }
 
@@ -232,8 +252,23 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         heading.addView(sectionTitle("Ofertas registradas"), LinearLayout.LayoutParams(0, dp(48), 1f))
-        heading.addView(actionButton("Exportar CSV") { exportCsv() })
+        heading.addView(actionButton("Exportar CSV", primary = false) { exportCsv() })
         content.addView(heading)
+        val filters = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            tag = "offer_filters"
+        }
+        for (filter in listOf("Todas", "Aceptaría", "Rechazaría")) {
+            val chip = actionButton(filter, primary = false) {
+                offerFilter = filter
+                refreshOffers()
+            }
+            chip.tag = filter
+            filters.addView(chip, LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                marginEnd = dp(4)
+            })
+        }
+        content.addView(filters)
         val list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             tag = "offers_list"
@@ -282,8 +317,13 @@ class MainActivity : Activity() {
         })
         content.addView(resultCard)
 
-        saveCostsButton = actionButton("Guardar") { saveCosts() }
-        content.addView(saveCostsButton)
+        saveCostsButton = actionButton("Guardar", primary = true) { saveCosts() }
+        costsPage.addView(saveCostsButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(56)
+        ).apply {
+            setMargins(dp(16), dp(6), dp(16), dp(12))
+        })
     }
 
     private fun buildDiagnosticsPage() {
@@ -303,7 +343,7 @@ class MainActivity : Activity() {
         simulatorCard.addView(actionButton("Usar ejemplo") {
             simulationInput.setText("UberX | CRC1,404.33 | A 7 min (1.4 km) | Viaje: 10 min (2.7 km) | Aceptar")
         })
-        simulatorCard.addView(actionButton("Simular") { simulateOffer() })
+        simulatorCard.addView(actionButton("Simular", primary = true) { simulateOffer() })
         simulationOutput = bodyText("")
         simulatorCard.addView(simulationOutput)
         content.addView(simulatorCard)
@@ -365,6 +405,49 @@ class MainActivity : Activity() {
             refreshDiagnostics()
         })
         content.addView(trialCard)
+        collapseDiagnosticSections(content)
+        simulationOutput.typeface = Typeface.MONOSPACE
+        simulationOutput.textSize = 12f
+        liveDiagnosticText.typeface = Typeface.MONOSPACE
+        liveDiagnosticText.textSize = 12f
+        manualTripsText.typeface = Typeface.MONOSPACE
+        manualTripsText.textSize = 12f
+        treeDumpText.typeface = Typeface.MONOSPACE
+        treeDumpText.textSize = 12f
+        trialCountersText.typeface = Typeface.MONOSPACE
+        trialCountersText.textSize = 12f
+    }
+
+    private fun collapseDiagnosticSections(content: LinearLayout) {
+        var index = 0
+        while (index + 1 < content.childCount) {
+            val heading = content.getChildAt(index) as? TextView
+            val section = content.getChildAt(index + 1)
+            if (heading == null || section !is LinearLayout) {
+                index += 1
+                continue
+            }
+            content.removeViewAt(index + 1)
+            content.removeViewAt(index)
+            val group = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            heading.text = "▸  ${heading.text}"
+            heading.minHeight = dp(48)
+            heading.setPadding(dp(8), dp(10), dp(8), dp(10))
+            heading.background = roundedDrawable(palette.card, 12, palette.border, 1.5f)
+            section.visibility = View.GONE
+            heading.setOnClickListener {
+                val opening = section.visibility != View.VISIBLE
+                section.visibility = if (opening) View.VISIBLE else View.GONE
+                heading.text = (if (opening) "▾  " else "▸  ") + heading.text.toString().removePrefix("▸  ").removePrefix("▾  ")
+            }
+            group.addView(heading)
+            group.addView(section)
+            group.setPadding(0, 0, 0, dp(8))
+            content.addView(group, index)
+            index += 1
+        }
     }
 
     private fun showPage(index: Int) {
@@ -372,8 +455,20 @@ class MainActivity : Activity() {
         for (i in pageViews.indices) {
             pageViews[i].visibility = if (i == activePage) View.VISIBLE else View.GONE
             tabButtons[i].isSelected = i == activePage
-            tabButtons[i].alpha = if (i == activePage) 1f else 0.72f
+            tabButtons[i].getChildAt(0).isSelected = i == activePage
+            tabButtons[i].background = roundedDrawable(
+                if (i == activePage) palette.brand else palette.card,
+                12,
+                if (i == activePage) palette.brand else palette.border,
+                1.5f
+            )
+            val label = tabButtons[i].getChildAt(1) as TextView
+            label.setTextColor(if (i == activePage) palette.darkText else palette.muted)
         }
+        pageViews[activePage].startAnimation(AlphaAnimation(0.86f, 1f).apply {
+            duration = 200
+            fillAfter = true
+        })
         refreshAll()
     }
 
@@ -435,7 +530,7 @@ class MainActivity : Activity() {
         }
         DriverCostsStore.save(this, costs)
         updateFuelCostPreview()
-        showToast("Costos guardados")
+        showToast("Guardado")
         refreshAll()
     }
 
@@ -503,50 +598,73 @@ class MainActivity : Activity() {
     }
 
     private fun refreshHome() {
+        updatePowerPresentation()
+        val systemOn = SystemPowerStore.isOn(this)
         val manager = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
         val enabled = manager.getEnabledAccessibilityServiceList(
             AccessibilityServiceInfo.FEEDBACK_ALL_MASK
         ).any { it.id?.contains(packageName) == true }
-        val statusColor = if (enabled) Color.rgb(35, 145, 75) else Color.rgb(190, 45, 45)
-        statusText.text = if (enabled) "Activo" else "Apagado"
+        val statusColor = if (systemOn && enabled) palette.accept else palette.reject
+        statusText.text = if (!systemOn) "● En pausa" else if (enabled) "● Servicio activo" else "● Servicio apagado"
         statusText.setTextColor(statusColor)
-        statusText.background = roundedDrawable(statusColor, 16)
-        statusText.setPadding(dp(16), dp(14), dp(16), dp(14))
+        statusText.background = roundedDrawable(palette.card, 18, palette.border, 1.5f)
+        statusText.setPadding(dp(10), dp(5), dp(10), dp(5))
+        statusText.minHeight = dp(36)
 
         latestOfferCard.removeAllViews()
         val latest = OffersStore.read(this).firstOrNull()
-        if (latest == null) {
+        if (!systemOn) {
+            latestOfferCard.background = roundedDrawable(palette.card, 16, palette.reject, 2f)
+            latestOfferCard.addView(TextView(this).apply {
+                text = "En pausa"
+                textSize = 28f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(palette.reject)
+                setPadding(dp(8), dp(12), dp(8), dp(12))
+            })
+        } else if (latest == null) {
             latestOfferCard.addView(bodyText("Todavía no hay ofertas registradas."))
         } else {
             val parsed = latest.parsed
             val decision = latest.decision ?: Decision.SIN_DATOS
+            latestOfferCard.background = roundedDrawable(palette.card, 16, decisionColor(decision), 2f)
             latestOfferCard.addView(TextView(this).apply {
                 text = "₡${fmt(parsed.fare)}"
                 textSize = 32f
                 setTypeface(typeface, Typeface.BOLD)
+                setTextColor(palette.text)
+                contentDescription = "Tarifa ${fmt(parsed.fare)}"
             })
+            latestOfferCard.addView(bodyText("Hora: ${latest.timestamp}", small = true))
             latestOfferCard.addView(bodyText(
-                "Hora: ${latest.timestamp}\n" +
-                    "Recogida: ${parsed.pickupKm?.let { fmt(it) + " km / " + fmt(parsed.pickupMinutes ?: 0.0) + " min" } ?: "Sin datos"}\n" +
-                    "Viaje: ${parsed.tripKm?.let { fmt(it) + " km / " + fmt(parsed.tripMinutes ?: 0.0) + " min" } ?: "Sin datos"}"
+                "Recogida: ${parsed.pickupKm?.let { fmt(it) + " km" } ?: "Sin datos"}  ·  Viaje: ${parsed.tripKm?.let { fmt(it) + " km" } ?: "Sin datos"}"
             ))
-            latest.result?.let { result ->
-                latestOfferCard.addView(bodyText(
-                    "Neto/km: ₡${fmt(result.netPerKm)}\nNeto/hora: ₡${fmt(result.netPerHour)}\nA/C=${if (latest.acEnabled) "sí" else "no"}"
-                ))
-            }
             latestOfferCard.addView(decisionBadge(decision))
-            if (latest.reasons.isNotEmpty()) {
-                latestOfferCard.addView(bodyText(latest.reasons.joinToString("\n")))
+            latest.result?.let { result ->
+                val costs = DriverCostsStore.read(this)
+                latestOfferCard.addView(progressMetric("Neto por km", result.netPerKm, costs.minimumNetPerKm))
+                latestOfferCard.addView(progressMetric("Neto por hora", result.netPerHour, costs.minimumNetPerHour))
             }
+            if (latest.reasons.isNotEmpty()) {
+                latestOfferCard.addView(bodyText(latest.reasons.joinToString("\n"), small = true))
+            }
+            latestOfferCard.startAnimation(AlphaAnimation(0.82f, 1f).apply {
+                duration = 200
+                fillAfter = true
+            })
         }
 
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         val daily = OffersStore.read(this).filter { it.timestamp.startsWith(today) }
         val accepted = daily.count { it.decision == Decision.ACEPTARIA }
         val rejected = daily.count { it.decision == Decision.RECHAZARIA }
-        homePage.findViewWithTag<TextView>("daily_counters")?.text =
-            "Ofertas vistas: ${daily.size}\nACEPTARÍA: $accepted\nRECHAZARÍA: $rejected"
+        val counters = homePage.findViewWithTag<LinearLayout>("daily_counter_row")
+        counters?.removeAllViews()
+        if (counters != null) {
+            counters.addView(counterCard("VISTAS", daily.size, palette.brand), weightedParams())
+            counters.addView(counterCard("ACEPTARÍA", accepted, palette.accept), weightedParams())
+            counters.addView(counterCard("RECHAZARÍA", rejected, palette.reject), weightedParams())
+        }
         if (::demoSwitch.isInitialized) {
             demoSwitch.isChecked = DemoModeStore.isEnabled(this)
         }
@@ -555,36 +673,93 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun updatePowerPresentation() {
+        if (!::systemPowerSwitch.isInitialized || !::pauseBanner.isInitialized) {
+            return
+        }
+        val isOn = SystemPowerStore.isOn(this)
+        systemPowerSwitch.setOnCheckedChangeListener(null)
+        systemPowerSwitch.isChecked = isOn
+        val powerColor = if (isOn) palette.accept else palette.reject
+        systemPowerSwitch.text = if (isOn) "●  Sistema ENCENDIDO" else "●  Sistema APAGADO"
+        systemPowerSwitch.setTextColor(Color.WHITE)
+        systemPowerSwitch.background = roundedDrawable(powerColor, 18, powerColor, 2f)
+        systemPowerSwitch.setOnCheckedChangeListener { _, checked ->
+            SystemPowerStore.setOn(this, checked)
+            refreshAll()
+        }
+        val changedAt = SystemPowerStore.lastChangedAt(this)
+        val formatted = if (changedAt > 0L) {
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(changedAt))
+        } else {
+            "Sin cambios registrados"
+        }
+        if (::lastPowerChangeText.isInitialized) {
+            lastPowerChangeText.text = "Último cambio: $formatted"
+        }
+        pauseBanner.visibility = if (isOn) View.GONE else View.VISIBLE
+        pageContent(homePage).findViewWithTag<LinearLayout>("master_power_card")?.background =
+            roundedDrawable(powerColor, 18, powerColor, 2f)
+        if (::lastPowerChangeText.isInitialized) {
+            lastPowerChangeText.setTextColor(Color.WHITE)
+        }
+    }
+
     private fun refreshOffers() {
         val list = offersPage.findViewWithTag<LinearLayout>("offers_list") ?: return
         list.removeAllViews()
-        val offers = OffersStore.read(this)
+        val allOffers = OffersStore.read(this)
+        val offers = when (offerFilter) {
+            "Aceptaría" -> allOffers.filter { it.decision == Decision.ACEPTARIA }
+            "Rechazaría" -> allOffers.filter { it.decision == Decision.RECHAZARIA }
+            else -> allOffers
+        }
+        val filters = offersPage.findViewWithTag<LinearLayout>("offer_filters")
+        for (i in 0 until (filters?.childCount ?: 0)) {
+            val chip = filters?.getChildAt(i) as? Button ?: continue
+            styleButton(chip, chip.tag == offerFilter)
+        }
         if (offers.isEmpty()) {
-            list.addView(bodyText("Todavía no hay ofertas registradas."))
+            list.addView(bodyText(if (allOffers.isEmpty()) "Aún no hay ofertas. Cuando llegue una, aparecerá aquí." else "No hay ofertas para este filtro. Prueba otra opción."))
             return
         }
         for (offer in offers) {
-            val offerCard = card()
+            val decision = offer.decision ?: Decision.SIN_DATOS
+            val color = decisionColor(decision)
+            val outer = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                background = roundedDrawable(palette.card, 16, color, 2f)
+                clipToOutline = true
+            }
+            outer.addView(View(this).apply {
+                setBackgroundColor(color)
+                contentDescription = "Color de decisión"
+            }, LinearLayout.LayoutParams(dp(8), ViewGroup.LayoutParams.MATCH_PARENT))
+            val offerCard = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+            }
             offerCard.addView(TextView(this).apply {
                 text = "₡${fmt(offer.parsed.fare)}"
-                textSize = 28f
+                textSize = 32f
                 setTypeface(typeface, Typeface.BOLD)
+                setTextColor(palette.text)
             })
-            offerCard.addView(bodyText(
-                offer.timestamp + "\n" +
-                    "Recogida: ${offer.parsed.pickupKm?.let { fmt(it) + " km" } ?: "Sin datos"}; " +
-                    "viaje: ${offer.parsed.tripKm?.let { fmt(it) + " km" } ?: "Sin datos"}"
-            ))
-            offerCard.addView(decisionBadge(offer.decision ?: Decision.SIN_DATOS))
+            offerCard.addView(bodyText(offer.timestamp + "\n" +
+                "Recogida: ${offer.parsed.pickupKm?.let { fmt(it) + " km" } ?: "Sin datos"}  ·  " +
+                "Viaje: ${offer.parsed.tripKm?.let { fmt(it) + " km" } ?: "Sin datos"}"))
+            offerCard.addView(decisionBadge(decision))
             if (offer.result != null) {
-                offerCard.addView(bodyText(
-                    "Neto/km ₡${fmt(offer.result.netPerKm)} · Neto/hora ₡${fmt(offer.result.netPerHour)} · A/C=${if (offer.acEnabled) "sí" else "no"}"
-                ))
+                offerCard.addView(bodyText("Neto/km ₡${fmt(offer.result.netPerKm)}  ·  Neto/hora ₡${fmt(offer.result.netPerHour)}"))
             }
             if (offer.reasons.isNotEmpty()) {
-                offerCard.addView(bodyText("Motivos: ${offer.reasons.joinToString("; ")}"))
+                offerCard.addView(bodyText("Motivos: ${offer.reasons.joinToString("; ")}", small = true))
             }
-            list.addView(offerCard)
+            outer.addView(offerCard, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            list.addView(outer, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(12) })
         }
     }
 
@@ -604,29 +779,33 @@ class MainActivity : Activity() {
     }
 
     private fun decisionBadge(decision: Decision): TextView {
-        val (label, color) = when (decision) {
-            Decision.ACEPTARIA -> "ACEPTARÍA" to Color.rgb(35, 145, 75)
-            Decision.RECHAZARIA -> "RECHAZARÍA" to Color.rgb(190, 45, 45)
-            Decision.SIN_DATOS -> "SIN DATOS" to Color.rgb(105, 105, 115)
+        val color = decisionColor(decision)
+        val label = when (decision) {
+            Decision.ACEPTARIA -> "ACEPTARÍA"
+            Decision.RECHAZARIA -> "RECHAZARÍA"
+            Decision.SIN_DATOS -> "SIN DATOS"
         }
         return TextView(this).apply {
             text = label
-            textSize = 16f
+            textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(palette.darkText)
             gravity = Gravity.CENTER
             minHeight = dp(40)
             setPadding(dp(14), dp(6), dp(14), dp(6))
-            background = roundedDrawable(color, 20)
+            background = roundedDrawable(color, 22, color, 2f)
         }
     }
 
-    private fun card(): LinearLayout {
+    private fun card(
+        borderColor: Int = palette.border,
+        borderWidth: Float = 1.5f
+    ): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(12), dp(14), dp(12))
-            background = roundedDrawable(themeColor(android.R.attr.colorBackgroundFloating), 16)
-            elevation = dp(2).toFloat()
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = roundedDrawable(palette.card, 16, borderColor, borderWidth)
+            elevation = 0f
             val params = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -638,19 +817,21 @@ class MainActivity : Activity() {
 
     private fun sectionTitle(text: String): TextView {
         return TextView(this).apply {
-            this.text = text
-            textSize = 21f
+            this.text = text.uppercase(Locale.getDefault())
+            textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(themeColor(android.R.attr.textColorPrimary))
-            setPadding(0, dp(12), 0, dp(8))
+            letterSpacing = 0.08f
+            setTextColor(palette.muted)
+            setPadding(0, dp(18), 0, dp(8))
         }
     }
 
-    private fun bodyText(text: String): TextView {
+    private fun bodyText(text: String, small: Boolean = false): TextView {
         return TextView(this).apply {
             this.text = text
-            textSize = 17f
-            setTextColor(themeColor(android.R.attr.textColorPrimary))
+            textSize = if (small) 12f else 16f
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setTextColor(palette.text)
             setPadding(dp(8), dp(8), dp(8), dp(8))
             setTextIsSelectable(true)
         }
@@ -659,14 +840,17 @@ class MainActivity : Activity() {
     private fun labeledInput(parent: LinearLayout, label: String, default: String): EditText {
         parent.addView(TextView(this).apply {
             text = label
-            textSize = 16f
-            setTextColor(themeColor(android.R.attr.textColorPrimary))
+            textSize = 14f
+            setTextColor(palette.muted)
             setPadding(dp(4), dp(8), dp(4), dp(2))
         })
         val field = EditText(this).apply {
             setText(default)
-            textSize = 18f
-            minHeight = dp(48)
+            textSize = 16f
+            minHeight = dp(52)
+            setTextColor(palette.text)
+            setHintTextColor(palette.muted)
+            background = roundedDrawable(palette.card, 12, palette.border, 1.5f)
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or
                 android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
@@ -677,30 +861,54 @@ class MainActivity : Activity() {
         return field
     }
 
-    private fun actionButton(label: String, action: () -> Unit): Button {
+    private fun actionButton(
+        label: String,
+        primary: Boolean = false,
+        action: () -> Unit
+    ): Button {
         return Button(this).apply {
             text = label
-            textSize = 16f
+            textSize = 14f
             isAllCaps = false
-            minHeight = dp(48)
+            minHeight = dp(52)
+            setPadding(dp(14), dp(8), dp(14), dp(8))
             setOnClickListener { action() }
+            styleButton(this, primary)
         }
     }
 
-    private fun roundedDrawable(color: Int, radiusDp: Int): GradientDrawable {
+    private fun styleButton(button: Button, selected: Boolean) {
+        button.background = roundedDrawable(
+            if (selected) palette.brand else Color.TRANSPARENT,
+            14,
+            palette.brand,
+            2f
+        )
+        button.setTextColor(if (selected) palette.darkText else palette.brand)
+        button.stateListAnimator = null
+        button.elevation = 0f
+    }
+
+    private fun roundedDrawable(
+        color: Int,
+        radiusDp: Int,
+        strokeColor: Int = palette.border,
+        strokeWidthDp: Float = 1.5f
+    ): GradientDrawable {
         return GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(radiusDp).toFloat()
+            setStroke((strokeWidthDp * resources.displayMetrics.density).toInt().coerceAtLeast(1), strokeColor)
         }
     }
 
     private fun themeColor(attribute: Int): Int {
-        val value = TypedValue()
-        theme.resolveAttribute(attribute, value, true)
-        if (value.resourceId != 0) {
-            return getColor(value.resourceId)
+        return when (attribute) {
+            android.R.attr.colorBackground -> palette.background
+            android.R.attr.colorBackgroundFloating -> palette.card
+            android.R.attr.textColorPrimary -> palette.text
+            else -> palette.text
         }
-        return value.data
     }
 
     private fun copyToClipboard(label: String, text: String) {
@@ -748,6 +956,119 @@ class MainActivity : Activity() {
 
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun weightedParams(): LinearLayout.LayoutParams {
+        return LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginEnd = dp(8)
+        }
+    }
+
+    private fun counterCard(label: String, value: Int, color: Int): LinearLayout {
+        val tile = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(12), dp(8), dp(12))
+            background = roundedDrawable(palette.card, 16, color, 2f)
+        }
+        tile.addView(TextView(this).apply {
+            text = value.toString()
+            textSize = 32f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(color)
+            gravity = Gravity.CENTER
+        })
+        tile.addView(TextView(this).apply {
+            text = label
+            textSize = 11f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(palette.muted)
+            gravity = Gravity.CENTER
+        })
+        return tile
+    }
+
+    private fun progressMetric(label: String, value: Double, minimum: Double): LinearLayout {
+        val met = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(8), dp(4), dp(4))
+        }
+        val color = if (value >= minimum) palette.accept else palette.reject
+        met.addView(TextView(this).apply {
+            text = label.uppercase(Locale.getDefault())
+            textSize = 12f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(palette.muted)
+        })
+        met.addView(TextView(this).apply {
+            text = "₡${fmt(value)}"
+            textSize = 32f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(color)
+            contentDescription = "$label ${fmt(value)}"
+        })
+        met.addView(TextView(this).apply {
+            text = "Mínimo: ₡${fmt(minimum)}"
+            textSize = 12f
+            setTextColor(palette.muted)
+        })
+        val progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = if (minimum > 0.0) ((value / minimum) * 100).toInt().coerceIn(0, 100) else 100
+            progressTintList = android.content.res.ColorStateList.valueOf(color)
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(palette.border)
+            contentDescription = "$label frente al mínimo"
+            background = roundedDrawable(palette.card, 6, palette.border, 1.5f)
+        }
+        met.addView(progress, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(14)
+        ))
+        return met
+    }
+
+    private fun decisionColor(decision: Decision): Int {
+        return when (decision) {
+            Decision.ACEPTARIA -> palette.accept
+            Decision.RECHAZARIA -> palette.reject
+            Decision.SIN_DATOS -> palette.neutral
+        }
+    }
+
+    private fun buildBottomNavigation(root: LinearLayout) {
+        val navigation = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            background = roundedDrawable(palette.card, 16, palette.border, 1.5f)
+        }
+        for ((index, name) in pageNames.withIndex()) {
+            val tab = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                minimumHeight = dp(58)
+                contentDescription = name
+                setPadding(dp(4), dp(4), dp(4), dp(4))
+                setOnClickListener { showPage(index) }
+            }
+            tab.addView(NavGlyphView(this, index).apply {
+                contentDescription = "$name, pestaña"
+            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            tab.addView(TextView(this).apply {
+                text = name
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(palette.muted)
+            })
+            tabButtons.add(tab)
+            navigation.addView(tab, LinearLayout.LayoutParams(0, dp(64), 1f))
+        }
+        root.addView(navigation, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(72)
+        ).apply {
+            setMargins(dp(12), dp(4), dp(12), dp(8))
+        })
     }
 }
 

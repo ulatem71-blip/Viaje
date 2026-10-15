@@ -16,10 +16,15 @@ class OfferAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        LogStore.add(this, "SERVICIO CONECTADO; captura local activada")
+        if (SystemPowerStore.isOn(this)) {
+            LogStore.add(this, "SERVICIO CONECTADO; captura local activada")
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (!SystemPowerPolicy.shouldProcess(SystemPowerStore.isOn(this))) {
+            return
+        }
         event ?: return
         if (event.packageName?.toString() != UBER_DRIVER_PACKAGE) return
         try {
@@ -408,11 +413,15 @@ class OfferAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        LogStore.add(this, "SERVICIO INTERRUMPIDO")
+        if (SystemPowerStore.isOn(this)) {
+            LogStore.add(this, "SERVICIO INTERRUMPIDO")
+        }
     }
 
     override fun onDestroy() {
-        LogStore.add(this, "SERVICIO DESCONECTADO")
+        if (SystemPowerStore.isOn(this)) {
+            LogStore.add(this, "SERVICIO DESCONECTADO")
+        }
         super.onDestroy()
     }
 
