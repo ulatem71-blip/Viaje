@@ -1,8 +1,9 @@
 package com.viajerentable.app
 
 import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.view.accessibility.AccessibilityNodeInfo
-import java.util.Locale
 
 data class AcceptanceGateInput(
     val enabled: Boolean,
@@ -154,14 +155,19 @@ object OfferClicker {
     }
 
     fun fingerprint(offer: ParsedOffer): String {
-        if (!offer.hasRouteDetails) return "compact:${format(offer.fare)}"
-        return listOf(
-            format(offer.fare),
-            format(offer.pickupKm!!),
-            format(offer.pickupMinutes!!),
-            format(offer.tripKm!!),
-            format(offer.tripMinutes!!)
-        ).joinToString("|")
+        return OfferDeduplicator.fingerprint(offer)
+    }
+
+    fun playClickSound() {
+        val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
+        tone.startTone(ToneGenerator.TONE_PROP_ACK, 180)
+        tone.release()
+    }
+
+    fun playSafetyWarning() {
+        val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
+        tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
+        tone.release()
     }
 
     private fun findExactAcceptButton(
