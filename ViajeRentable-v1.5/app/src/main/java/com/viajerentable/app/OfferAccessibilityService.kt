@@ -405,7 +405,12 @@ class OfferAccessibilityService : AccessibilityService() {
 
             AutoAcceptanceStore.markAccepted(this, fingerprint)
             AutoAcceptanceStore.markClickAttempt(this)
-            val clicked = OfferClicker.click(freshTarget, freshRoot)
+            val clickResult = OfferClicker.click(freshTarget, freshRoot)
+            if (!clickResult.actionInvoked) {
+                LogStore.add(this, "ACEPTACIÓN CANCELADA: la tarjeta cambió")
+                return
+            }
+            val clicked = clickResult.succeeded
             val safety = AutoAcceptanceStore.recordClickResult(this, clicked)
             val profitability = Profitability.calculate(
                 Offer(
@@ -417,7 +422,8 @@ class OfferAccessibilityService : AccessibilityService() {
                 ),
                 DriverCostsStore.read(this)
             )
-            val route = "recogida ${fmt(parsed.pickupKm!!)} km/${fmt(parsed.pickupMinutes!!)} min; " +
+            val route = "origen=${parsed.pickupPlace.orEmpty()}; destino=${parsed.destinationPlace.orEmpty()}; " +
+                "recogida ${fmt(parsed.pickupKm!!)} km/${fmt(parsed.pickupMinutes!!)} min; " +
                 "viaje ${fmt(parsed.tripKm!!)} km/${fmt(parsed.tripMinutes!!)} min"
             val resultText = if (clicked) "resultado=true" else "resultado=false"
             val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
