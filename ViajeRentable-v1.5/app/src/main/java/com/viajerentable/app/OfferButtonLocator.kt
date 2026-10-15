@@ -200,8 +200,9 @@ object OfferButtonLocator {
     }
 
     private fun copyTree(node: AccessibilityNodeInfo): OfferTreeNode {
-        val bounds = Rect()
-        node.getBoundsInScreen(bounds)
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+        val bounds = ScreenBounds(rect.left, rect.top, rect.right, rect.bottom)
         val children = mutableListOf<OfferTreeNode>()
         for (index in 0 until node.childCount) {
             val child = node.getChild(index) ?: continue
