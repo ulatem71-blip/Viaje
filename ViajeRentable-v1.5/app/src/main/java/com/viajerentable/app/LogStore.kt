@@ -4,6 +4,9 @@ import android.content.Context
 
 object LogStore {
     private const val PREFS = "diagnostic_log"
+    private const val AUDIT_PREFS = "acceptance_audit"
+    private const val AUDIT_KEY = "entries"
+    private const val AUDIT_LIMIT = 1000
     private const val KEY = "entries"
     private const val LAST_DIAGNOSTIC_KEY = "last_diagnostic_at"
     private const val LAST_MULTI_CARD_KEY = "last_multi_card_at"
@@ -82,6 +85,37 @@ object LogStore {
     fun read(c: Context): String {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY, "Sin registros todavía.") ?: ""
+    }
+
+    @Synchronized
+    fun addAudit(c: Context, line: String) {
+        val preferences = c.getSharedPreferences(AUDIT_PREFS, Context.MODE_PRIVATE)
+        val rows = (preferences.getString(AUDIT_KEY, "") ?: "")
+            .lines()
+            .filter { it.isNotBlank() }
+            .toMutableList()
+        rows.add(line)
+        while (rows.size > AUDIT_LIMIT) {
+            rows.removeAt(0)
+        }
+        preferences.edit().putString(AUDIT_KEY, rows.joinToString("\n")).apply()
+    }
+
+    fun readAudit(c: Context): String {
+        return c.getSharedPreferences(AUDIT_PREFS, Context.MODE_PRIVATE)
+            .getString(AUDIT_KEY, "Sin aceptaciones reales registradas.") ?: ""
+    }
+
+    fun csvAudit(c: Context): String {
+        val rows = (c.getSharedPreferences(AUDIT_PREFS, Context.MODE_PRIVATE)
+            .getString(AUDIT_KEY, "") ?: "").lines().filter { it.isNotBlank() }
+        val header = "fecha,tarifaCRC,ruta,recogidaKm,netoPorKm,netoPorHora,boundsBoton,resultado"
+        val data = rows.map { line ->
+            line.split("|", limit = 8).joinToString(",") { cell ->
+                "\"" + cell.replace("\"", "\"\"") + "\""
+            }
+        }
+        return (listOf(header) + data).joinToString("\r\n")
     }
 
     fun clear(c: Context) {
