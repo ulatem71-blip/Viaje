@@ -1045,7 +1045,7 @@ class MainActivity : Activity() {
             val tab = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                minHeight = dp(58)
+                minimumHeight = dp(58)
                 contentDescription = name
                 setPadding(dp(4), dp(4), dp(4), dp(4))
                 setOnClickListener { showPage(index) }
