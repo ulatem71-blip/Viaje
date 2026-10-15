@@ -1,6 +1,5 @@
 package com.viajerentable.app
 
-import android.graphics.Rect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -19,7 +18,7 @@ class OfferButtonLocatorTest {
         assertEquals(1803.33, target.fare, 0.01)
         assertEquals("Aceptar", target.buttonType)
         assertEquals(ScreenBounds(300, 100, 390, 150), target.buttonBoundsInScreen)
-        assertEquals(Rect(350, 10, 395, 55), target.xBoundsInScreen)
+        assertEquals(ScreenBounds(350, 10, 395, 55), target.xBoundsInScreen)
         assertTrue(target.isEnabled)
         assertTrue(target.isVisibleToUser)
         assertTrue(target.cardText.contains("Viaje:"))
@@ -51,7 +50,7 @@ class OfferButtonLocatorTest {
                 OfferTreeNode(
                     className = "android.widget.Button",
                     text = "Aceptar",
-                    boundsInScreen = Rect(80, 500, 260, 560)
+                    boundsInScreen = ScreenBounds(80, 500, 260, 560)
                 )
             )
         )
@@ -89,11 +88,11 @@ class OfferButtonLocatorTest {
     }
 
     private fun card(fare: Double, offset: Int, buttonType: String): OfferTreeNode {
-        val cardBounds = Rect(0, offset, 400, offset + 280)
+        val cardBounds = ScreenBounds(0, offset, 400, offset + 280)
         val close = OfferTreeNode(
             className = "android.widget.Button",
             isClickable = true,
-            boundsInScreen = Rect(350, offset + 10, 395, offset + 55)
+            boundsInScreen = ScreenBounds(350, offset + 10, 395, offset + 55)
         )
         val scroll = OfferTreeNode(
             className = "android.widget.ScrollView",
@@ -113,7 +112,7 @@ class OfferButtonLocatorTest {
             text = buttonType,
             isEnabled = true,
             isVisibleToUser = true,
-            boundsInScreen = Rect(300, offset + 100, 390, offset + 150)
+            boundsInScreen = ScreenBounds(300, offset + 100, 390, offset + 150)
         )
         return OfferTreeNode(
             className = "androidx.cardview.widget.CardView",
