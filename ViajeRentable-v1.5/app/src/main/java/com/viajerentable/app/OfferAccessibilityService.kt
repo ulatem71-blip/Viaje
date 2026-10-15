@@ -147,6 +147,8 @@ class OfferAccessibilityService : AccessibilityService() {
                 }
             }
 
+            runButtonLocationTrial(windowsSnapshot, timestamp)
+
             if (parsedOffers.size >= 2) {
                 val tariffs = parsedOffers.map { fmt(it.fare) }.sorted().joinToString(",")
                 val preview = combined.take(MULTI_CARD_TEXT_LIMIT)
@@ -172,6 +174,143 @@ class OfferAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             addDiagnostic("ERROR DE LECTURA: ${e.javaClass.simpleName}")
         }
+    }
+
+
+    private fun runButtonLocationTrial(
+        windowList: List<android.view.accessibility.AccessibilityWindowInfo>,
+        timestamp: String
+    ) {
+        for (window in windowList) {
+            val root = try {
+                window.root
+            } catch (_: Exception) {
+                null
+            } ?: continue
+
+            try {
+                if (root.packageName?.toString() != UBER_DRIVER_PACKAGE) {
+                    continue
+                }
+                val result = OfferButtonLocator.locate(root)
+                for (ambiguous in result.ambiguous) {
+                    OfferButtonTrialStore.incrementAmbiguous(this)
+                    val parsed = OfferParser.parseAll(
+                        ambiguous.cardText + " | " + ambiguous.buttonType
+                    ).firstOrNull()
+                    val decision = parsed?.let { evaluateTrialDecision(it) }
+                    if (decision?.decision == Decision.ACEPTARIA) {
+                        OfferButtonTrialStore.incrementAcceptedWithoutButton(this)
+                        LogStore.add(
+                            this,
+                            "ENSAYO: ACEPTARIA PERO BOTÓN NO LOCALIZADO (${ambiguous.reason})"
+                        )
+                    } else {
+                        val decisionName = decision?.decision?.name ?: Decision.SIN_DATOS.name
+                        LogStore.add(
+                            this,
+                            "ENSAYO: NO PULSARÍA ($decisionName) tipo=${ambiguous.buttonType} X=no"
+                        )
+                    }
+                }
+
+                for (target in result.cards) {
+                    val parsed = OfferParser.parse(target.cardText)
+                    if (parsed == null) {
+                        LogStore.add(
+                            this,
+                            "ENSAYO: ACEPTARIA PERO BOTÓN NO LOCALIZADO (tarjeta no parseable)"
+                        )
+                        OfferButtonTrialStore.incrementAcceptedWithoutButton(this)
+                        continue
+                    }
+
+                    val decision = evaluateTrialDecision(parsed)
+                    val storedOffers = OffersStore.read(this)
+                    val routeMatch = storedOffers.firstOrNull {
+                        sameRoute(it.parsed, parsed)
+                    }
+                    val exactFareMatch = storedOffers.any {
+                        kotlin.math.abs(it.parsed.fare - target.fare) < 0.01
+                    }
+                    if (routeMatch != null &&
+                        kotlin.math.abs(routeMatch.parsed.fare - target.fare) >= 0.01
+                    ) {
+                        OfferButtonTrialStore.incrementDiscrepancies(this)
+                        LogStore.add(
+                            this,
+                            "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs ${fmt(routeMatch.parsed.fare)}"
+                        )
+                    } else if (routeMatch == null && !exactFareMatch) {
+                        OfferButtonTrialStore.incrementDiscrepancies(this)
+                        val storedFare = storedOffers.firstOrNull()?.parsed?.fare
+                        val registered = storedFare?.let { fmt(it) } ?: "no registrada"
+                        LogStore.add(
+                            this,
+                            "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs $registered"
+                        )
+                    }
+
+                    val xBounds = target.xBoundsInScreen?.toShortString() ?: "no"
+                    when (decision.decision) {
+                        Decision.ACEPTARIA -> {
+                            if (target.buttonType == "Aceptar") {
+                                OfferButtonTrialStore.incrementAcceptedWithButton(this)
+                                LogStore.add(
+                                    this,
+                                    "ENSAYO: HABRÍA PULSADO Aceptar tarifa=${fmt(target.fare)} " +
+                                        "botón=${target.buttonBoundsInScreen.toShortString()} X=$xBounds " +
+                                        "habilitado=${target.isEnabled} visible=${target.isVisibleToUser}"
+                                )
+                            } else {
+                                LogStore.add(
+                                    this,
+                                    "ENSAYO: HABRÍA PULSADO Me interesa tarifa=${fmt(target.fare)} " +
+                                        "botón=${target.buttonBoundsInScreen.toShortString()} X=$xBounds " +
+                                        "habilitado=${target.isEnabled} visible=${target.isVisibleToUser}"
+                                )
+                            }
+                        }
+                        Decision.RECHAZARIA, Decision.SIN_DATOS -> {
+                            LogStore.add(
+                                this,
+                                "ENSAYO: NO PULSARÍA (${decision.decision}) tipo=${target.buttonType} X=$xBounds"
+                            )
+                        }
+                    }
+                }
+            } finally {
+                root.recycle()
+            }
+        }
+    }
+
+    private fun sameRoute(first: ParsedOffer, second: ParsedOffer): Boolean {
+        if (!first.hasRouteDetails || !second.hasRouteDetails) {
+            return false
+        }
+        return kotlin.math.abs(first.pickupKm!! - second.pickupKm!!) < 0.01 &&
+            kotlin.math.abs(first.pickupMinutes!! - second.pickupMinutes!!) < 0.01 &&
+            kotlin.math.abs(first.tripKm!! - second.tripKm!!) < 0.01 &&
+            kotlin.math.abs(first.tripMinutes!! - second.tripMinutes!!) < 0.01
+    }
+
+    private fun evaluateTrialDecision(offer: ParsedOffer): DemoResult {
+        if (!offer.hasRouteDetails) {
+            return DemoResult(Decision.SIN_DATOS, listOf("Sin datos de recorrido"))
+        }
+        val costs = DriverCostsStore.read(this)
+        val result = Profitability.calculate(
+            Offer(
+                offer.fare,
+                offer.pickupKm!!,
+                offer.pickupMinutes!!,
+                offer.tripKm!!,
+                offer.tripMinutes!!
+            ),
+            costs
+        )
+        return DemoDecision.evaluate(offer, result, costs)
     }
 
     private fun captureWindowTree(windowList: List<android.view.accessibility.AccessibilityWindowInfo>): String {

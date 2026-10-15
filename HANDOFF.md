@@ -50,3 +50,15 @@
 - El volcado y los textos permanecen localmente en el teléfono; no se agregó carga de datos.
 - No se añadió interacción con controles de Uber ni permisos de gestos. La verificación existente de CI `Ensure app contains no click automation` permanece sin cambios.
 - CI de esta rama: pendiente al momento de actualizar esta nota. Confirmar guard, compilación, pruebas y artefacto en GitHub Actions antes de dar por terminada la tarea.
+
+
+## Tarea: ensayo de localización del botón Aceptar (versión 1.15.0)
+- Rama: `chatgpt/ensayo-boton`, creada desde main; no hacer push ni merge a main desde esta tarea.
+- Versión: `versionName = "1.15.0"`, `versionCode = 28`.
+- Nuevo `OfferButtonLocator.kt`: inspecciona el árbol de accesibilidad del paquete `com.ubercab.driver`, encuentra botones `Aceptar` y `Me interesa`, obtiene la tarifa/texto de la tarjeta, límites del botón principal y de la X cuando cumple los umbrales geométricos.
+- Ignora botones aislados sin tarifa; tarjetas con varias tarifas o más de un botón Aceptar en el subárbol se registran como ambiguas. No interactúa con controles de Uber.
+- El servicio evalúa cada tarjeta mediante `DemoDecision`, escribe el resultado de ensayo en `LogStore` y cruza tarifa/ruta con `OffersStore`.
+- Añadidos contadores locales para ACEPTARIA con botón localizado, ACEPTARIA sin botón, tarjetas ambiguas y discrepancias, más botón para reiniciarlos.
+- Pruebas unitarias del árbol simulado: tarjeta única con X, dos tarjetas visibles, diálogo sin tarifa, tarjeta ambigua con dos tarifas y paquete distinto.
+- No se modificó `.github/workflows/build.yml`; la verificación `Ensure app contains no click automation` queda intacta. No se usan acciones de interacción sobre Uber.
+- CI de esta rama: pendiente al iniciar esta nota; confirmar guard, compilación, pruebas y artefacto APK en GitHub Actions antes de dar por terminada la tarea.
