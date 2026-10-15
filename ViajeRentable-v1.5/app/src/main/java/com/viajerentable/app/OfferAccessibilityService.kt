@@ -13,15 +13,37 @@ class OfferAccessibilityService : AccessibilityService() {
     private var lastDiagnosticAt = 0L
     private var lastTreeDumpAt = 0L
     private val offerDeduplicator = OfferDeduplicator()
+    private var hadOfferLocatedWhileEnabled = false
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        if (AutoAcceptanceStore.isEnabled(this)) {
+            disableAutoAcceptance("servicio de accesibilidad reiniciado")
+        }
         LogStore.add(this, "SERVICIO CONECTADO; captura local activada")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-        if (event.packageName?.toString() != UBER_DRIVER_PACKAGE) return
+        val eventPackage = event.packageName?.toString()
+        if (eventPackage != UBER_DRIVER_PACKAGE) {
+            if (AutoAcceptanceStore.isEnabled(this) && hadOfferLocatedWhileEnabled) {
+                val active = try {
+                    rootInActiveWindow
+                } catch (_: Exception) {
+                    null
+                }
+                val activePackage = try {
+                    active?.packageName?.toString()
+                } finally {
+                    active?.recycle()
+                }
+                if (activePackage != UBER_DRIVER_PACKAGE) {
+                    disableAutoAcceptance("Uber Driver dejó de estar en primer plano")
+                }
+            }
+            return
+        }
         try {
             val texts = mutableListOf<String>()
             val counter = Counter()
@@ -193,6 +215,9 @@ class OfferAccessibilityService : AccessibilityService() {
                     continue
                 }
                 val result = OfferButtonLocator.locate(root)
+                if (AutoAcceptanceStore.isEnabled(this) && result.cards.isNotEmpty()) {
+                    hadOfferLocatedWhileEnabled = true
+                }
                 for (ambiguous in result.ambiguous) {
                     OfferButtonTrialStore.incrementAmbiguous(this)
                     val parsed = OfferParser.parseAll(
@@ -236,18 +261,24 @@ class OfferAccessibilityService : AccessibilityService() {
                     if (routeMatch != null &&
                         kotlin.math.abs(routeMatch.parsed.fare - target.fare) >= 0.01
                     ) {
-                        OfferButtonTrialStore.incrementDiscrepancies(this)
-                        LogStore.add(
-                            this,
+                        recordTrialDiscrepancy(
                             "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs ${fmt(routeMatch.parsed.fare)}"
                         )
                     } else if (routeMatch == null && !exactFareMatch) {
-                        OfferButtonTrialStore.incrementDiscrepancies(this)
-                        val storedFare = storedOffers.firstOrNull()?.parsed?.fare
+                        val storedFare = routeMatch?.parsed?.fare ?: storedOffers.firstOrNull()?.parsed?.fare
                         val registered = storedFare?.let { fmt(it) } ?: "no registrada"
-                        LogStore.add(
-                            this,
+                        recordTrialDiscrepancy(
                             "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs $registered"
+                        )
+                    }
+
+                    if (decision.decision == Decision.ACEPTARIA) {
+                        attemptRealAcceptance(
+                            target = target,
+                            parsed = parsed,
+                            decision = decision,
+                            fareMatches = routeMatch != null &&
+                                kotlin.math.abs(routeMatch.parsed.fare - target.fare) < 0.01
                         )
                     }
 
@@ -282,6 +313,165 @@ class OfferAccessibilityService : AccessibilityService() {
             } finally {
                 root.recycle()
             }
+        }
+    }
+
+    private fun attemptRealAcceptance(
+        target: CardTarget,
+        parsed: ParsedOffer,
+        decision: DemoResult,
+        fareMatches: Boolean
+    ) {
+        if (!AutoAcceptanceStore.isEnabled(this)) return
+        if (target.buttonType != "Aceptar") return
+        val fingerprint = OfferClicker.fingerprint(parsed)
+        if (AutoAcceptanceStore.wasAccepted(this, fingerprint)) {
+            LogStore.add(this, "ACEPTACIÓN OMITIDA: oferta ya intentada fingerprint=$fingerprint")
+            return
+        }
+        val gate = AcceptanceDecisionGate.evaluate(
+            AcceptanceGateInput(
+                enabled = AutoAcceptanceStore.isEnabled(this),
+                target = target,
+                decision = decision.decision,
+                parsedOffer = parsed,
+                maxPickupKm = DriverCostsStore.maxPickupKm(this),
+                ambiguous = false,
+                fareMatches = fareMatches
+            )
+        )
+        if (!gate.allowed) {
+            LogStore.add(this, "ACEPTACIÓN OMITIDA: ${gate.reason}")
+            return
+        }
+        if (!AutoAcceptanceStore.mayClickNow(this)) {
+            LogStore.add(this, "ACEPTACIÓN OMITIDA: pausa mínima de 5 segundos")
+            return
+        }
+
+        val freshRoot = try {
+            rootInActiveWindow
+        } catch (_: Exception) {
+            null
+        }
+        if (freshRoot == null) {
+            LogStore.add(this, "ACEPTACIÓN CANCELADA: la tarjeta cambió")
+            return
+        }
+
+        try {
+            if (freshRoot.packageName?.toString() != UBER_DRIVER_PACKAGE) {
+                LogStore.add(this, "ACEPTACIÓN CANCELADA: la tarjeta cambió")
+                return
+            }
+            val freshResult = OfferButtonLocator.locate(freshRoot)
+            val freshTarget = freshResult.cards.singleOrNull { candidate ->
+                candidate.buttonType == "Aceptar" &&
+                    kotlin.math.abs(candidate.fare - target.fare) < 0.01 &&
+                    candidate.buttonBoundsInScreen == target.buttonBoundsInScreen &&
+                    sameRoute(OfferParser.parse(candidate.cardText) ?: return@singleOrNull false, parsed)
+            }
+            if (freshTarget == null || freshResult.ambiguous.any {
+                    it.boundsInScreen == target.buttonBoundsInScreen
+                }
+            ) {
+                LogStore.add(this, "ACEPTACIÓN CANCELADA: la tarjeta cambió")
+                return
+            }
+
+            val freshParsed = OfferParser.parse(freshTarget.cardText)
+            val freshDecision = freshParsed?.let { evaluateTrialDecision(it) }
+            val freshGate = AcceptanceDecisionGate.evaluate(
+                AcceptanceGateInput(
+                    enabled = AutoAcceptanceStore.isEnabled(this),
+                    target = freshTarget,
+                    decision = freshDecision?.decision ?: Decision.SIN_DATOS,
+                    parsedOffer = freshParsed,
+                    maxPickupKm = DriverCostsStore.maxPickupKm(this),
+                    ambiguous = false,
+                    fareMatches = freshParsed != null &&
+                        kotlin.math.abs(freshTarget.fare - freshParsed.fare) < 0.01 &&
+                        sameRoute(freshParsed, parsed)
+                )
+            )
+            if (!freshGate.allowed || !AutoAcceptanceStore.isEnabled(this)) {
+                LogStore.add(this, "ACEPTACIÓN CANCELADA: la tarjeta cambió")
+                return
+            }
+            if (!AutoAcceptanceStore.mayClickNow(this)) {
+                LogStore.add(this, "ACEPTACIÓN OMITIDA: pausa mínima de 5 segundos")
+                return
+            }
+
+            AutoAcceptanceStore.markAccepted(this, fingerprint)
+            AutoAcceptanceStore.markClickAttempt(this)
+            val clicked = OfferClicker.click(freshTarget, freshRoot)
+            val safety = AutoAcceptanceStore.recordClickResult(this, clicked)
+            val profitability = Profitability.calculate(
+                Offer(
+                    parsed.fare,
+                    parsed.pickupKm!!,
+                    parsed.pickupMinutes!!,
+                    parsed.tripKm!!,
+                    parsed.tripMinutes!!
+                ),
+                DriverCostsStore.read(this)
+            )
+            val route = "recogida ${fmt(parsed.pickupKm!!)} km/${fmt(parsed.pickupMinutes!!)} min; " +
+                "viaje ${fmt(parsed.tripKm!!)} km/${fmt(parsed.tripMinutes!!)} min"
+            val resultText = if (clicked) "performAction=true" else "performAction=false"
+            val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            LogStore.addAudit(
+                this,
+                listOf(
+                    timestamp,
+                    fmt(parsed.fare),
+                    route,
+                    fmt(parsed.pickupKm!!),
+                    fmt(profitability.netPerKm),
+                    fmt(profitability.netPerHour),
+                    freshTarget.buttonBoundsInScreen.toShortString(),
+                    resultText
+                ).joinToString("|")
+            )
+            LogStore.add(this, "ACEPTACIÓN REAL: tarifa=${fmt(parsed.fare)}; $route; $resultText")
+            if (clicked) {
+                OfferClicker.playClickSound()
+            } else {
+                LogStore.add(this, "ACEPTACIÓN FALLIDA: performAction devolvió false")
+            }
+            if (safety.mustDisable()) {
+                disableAutoAcceptance("dos fallos consecutivos de performAction")
+            }
+        } finally {
+            freshRoot.recycle()
+        }
+    }
+
+    private fun recordTrialDiscrepancy(message: String) {
+        OfferButtonTrialStore.incrementDiscrepancies(this)
+        LogStore.add(this, message)
+        if (AutoAcceptanceStore.isEnabled(this)) {
+            val safety = AutoAcceptanceStore.recordDiscrepancy(this)
+            if (safety.mustDisable()) {
+                disableAutoAcceptance("tres discrepancias de tarifa en el ensayo")
+            }
+        }
+    }
+
+    private fun disableAutoAcceptance(reason: String) {
+        val wasEnabled = AutoAcceptanceStore.isEnabled(this)
+        AutoAcceptanceStore.setEnabled(this, false)
+        hadOfferLocatedWhileEnabled = false
+        val message = "ACEPTACIÓN AUTOMÁTICA APAGADA: $reason"
+        LogStore.add(this, message)
+        LogStore.addAudit(
+            this,
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()) +
+                "| | | | | | |apagado automático: $reason"
+        )
+        if (wasEnabled) {
+            OfferClicker.playSafetyWarning()
         }
     }
 
