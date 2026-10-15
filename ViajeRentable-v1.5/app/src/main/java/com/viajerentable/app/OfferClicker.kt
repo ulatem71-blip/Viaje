@@ -118,11 +118,11 @@ object AutoAcceptanceStore {
         prefs(context).edit().putLong(LAST_CLICK_AT, nowMs).apply()
     }
 
-    fun wasAccepted(context: Context, fingerprint: String): Boolean {
+    fun wasAttempted(context: Context, fingerprint: String): Boolean {
         return acceptedFingerprints(context).contains(fingerprint)
     }
 
-    fun markAccepted(context: Context, fingerprint: String) {
+    fun markAttempted(context: Context, fingerprint: String) {
         val all = acceptedFingerprints(context).toMutableSet()
         all.add(fingerprint)
         prefs(context).edit().putStringSet(ACCEPTED_FINGERPRINTS, all).apply()
