@@ -438,10 +438,10 @@ class OfferAccessibilityService : AccessibilityService() {
             if (clicked) {
                 OfferClicker.playClickSound()
             } else {
-                LogStore.add(this, "ACEPTACIÓN FALLIDA: performAction devolvió false")
+                LogStore.add(this, "ACEPTACIÓN FALLIDA: la acción de botón devolvió false")
             }
             if (AutoAcceptanceShutdownPolicy.shouldDisable(AutoAcceptanceStore.isEnabled(this), AutoAcceptanceShutdownTrigger.CLICK_FAILURE, safety)) {
-                disableAutoAcceptance("dos fallos consecutivos de performAction")
+                disableAutoAcceptance("dos fallos consecutivos al solicitar el botón")
             }
         } finally {
             freshRoot.recycle()
