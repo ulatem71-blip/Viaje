@@ -2,6 +2,8 @@ package com.viajerentable.app
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.os.Bundle
 import android.provider.Settings
 import android.view.ViewGroup
@@ -10,13 +12,16 @@ import androidx.core.content.FileProvider
 import java.io.File
 import java.util.Locale
 class MainActivity:Activity(){
- private lateinit var status:TextView;private lateinit var screen:TextView;private lateinit var trips:TextView;private lateinit var offers:TextView;private lateinit var reason:EditText;private lateinit var logs:TextView
+ private lateinit var status:TextView;private lateinit var screen:TextView;private lateinit var treeDumpView:TextView;private lateinit var treeDumpSwitch:Switch;private lateinit var trips:TextView;private lateinit var offers:TextView;private lateinit var reason:EditText;private lateinit var logs:TextView
  private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText;private lateinit var demoSwitch:Switch;private lateinit var simulationInput:EditText;private lateinit var simulationOutput:TextView
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val pad=(16*resources.displayMetrics.density).toInt();val c=LinearLayout(this).apply{orientation=1;setPadding(pad,pad,pad,pad)}
  c.addView(TextView(this).apply{text="Viaje Rentable ${appVersion()}";textSize=25f});status=TextView(this);c.addView(status)
  c.addView(Button(this).apply{text="Abrir ajustes de accesibilidad";setOnClickListener{startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))}})
  c.addView(Button(this).apply{text="Actualizar datos de Uber";setOnClickListener{refresh()}})
  c.addView(title("Última pantalla de Uber"));c.addView(TextView(this).apply{text="Texto accesible de Uber, no una captura de imagen."});screen=TextView(this).apply{setTextIsSelectable(true)};c.addView(screen)
+ c.addView(title("Volcado de estructura de pantalla"));treeDumpSwitch=Switch(this).apply{text="Capturar estructura de pantalla";isChecked=ScreenTreeDumpStore.isEnabled(this@MainActivity);setOnCheckedChangeListener{_,checked->ScreenTreeDumpStore.setEnabled(this@MainActivity,checked);status.text=if(checked)"Captura de estructura activada; solo con Aceptar o Me interesa." else "Captura de estructura desactivada.";}};c.addView(treeDumpSwitch)
+ c.addView(Button(this).apply{text="Copiar último volcado";setOnClickListener{val dump=ScreenTreeDumpStore.lastDump(this@MainActivity);if(dump.isBlank()){status.text="Todavía no hay un volcado guardado.";return@setOnClickListener};val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager;clipboard.setPrimaryClip(ClipData.newPlainText("Último volcado de pantalla",dump));status.text="Último volcado copiado al portapapeles."}})
+ treeDumpView=TextView(this).apply{setTextIsSelectable(true)};c.addView(treeDumpView)
  c.addView(title("Guardar viaje aceptado"));reason=EditText(this).apply{hint="Motivo de aceptación";minLines=2};c.addView(reason)
  c.addView(Button(this).apply{text="Guardar como viaje aceptado";setOnClickListener{if(AcceptedTripStore.add(this@MainActivity,reason.text.toString(),AcceptedTripStore.latestScreen(this@MainActivity))){TripAlertSound.play(this@MainActivity);reason.setText("");refresh();status.text=status.text.toString()+"\nViaje guardado localmente; alerta sonora reproducida."}else status.text="No hay texto de Uber guardado todavía."}})
  c.addView(title("Viajes aceptados guardados"));trips=TextView(this).apply{setTextIsSelectable(true)};c.addView(trips);c.addView(Button(this).apply{text="Borrar viajes aceptados";setOnClickListener{AcceptedTripStore.clear(this@MainActivity);refresh()}})
@@ -64,6 +69,7 @@ class MainActivity:Activity(){
  private fun exportCsv(){val file=File(cacheDir,"ofertas_viaje_rentable.csv");file.writeText(OffersStore.csv(this),Charsets.UTF_8);val uri=FileProvider.getUriForFile(this,"com.viajerentable.app.fileprovider",file);val i=Intent(Intent.ACTION_SEND).apply{type="text/csv";putExtra(Intent.EXTRA_SUBJECT,"Ofertas registradas");putExtra(Intent.EXTRA_STREAM,uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)};startActivity(Intent.createChooser(i,"Compartir CSV"))}
  private fun refresh(){val m=getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager;val enabled=m.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any{it.id?.contains(packageName)==true};status.text="Servicio de accesibilidad habilitado: $enabled"
  screen.text=AcceptedTripStore.latestScreen(this).ifBlank{"Todavía no hay texto capturado. Abre Uber Driver y deja los datos visibles."};trips.text=AcceptedTripStore.read(this)
+ if(::treeDumpView.isInitialized){treeDumpView.text=ScreenTreeDumpStore.lastDump(this).ifBlank{"Todavía no hay un volcado. Activa la opción y deja visible una oferta con Aceptar o Me interesa."}}
  offers.text=OffersStore.read(this).joinToString("\n\n"){x->val p=x.parsed;val r=x.result;val d=x.decision?.let{"\nDemo: $it; motivos: ${x.reasons.joinToString("; ")}"}?:"";"${x.timestamp} | ${if(p.hasRouteDetails)"OFERTA DETALLADA" else "OFERTA COMPACTA"}\nTarifa ₡${fmt(p.fare)}; recogida ${p.pickupKm?.let{fmt(it)+" km / "+fmt(p.pickupMinutes!!)+" min"}?:"pendiente"}; viaje ${p.tripKm?.let{fmt(it)+" km / "+fmt(p.tripMinutes!!)+" min"}?:"pendiente"}\n"+(r?.let{"Neto ₡${fmt(it.net)}; ₡/km ${fmt(it.netPerKm)}; ₡/hora ${fmt(it.netPerHour)}; recomendado=${it.recommended}"}?:"Rentabilidad pendiente")+d}.ifBlank{"Todavía no hay ofertas registradas."}
  logs.text=LogStore.read(this)}
  private fun fmt(v:Double)=String.format(Locale.US,"%.2f",v)
