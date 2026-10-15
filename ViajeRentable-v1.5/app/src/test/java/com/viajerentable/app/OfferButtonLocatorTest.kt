@@ -18,7 +18,7 @@ class OfferButtonLocatorTest {
         val target = result.cards.single()
         assertEquals(1803.33, target.fare, 0.01)
         assertEquals("Aceptar", target.buttonType)
-        assertEquals(Rect(300, 100, 390, 150), target.buttonBoundsInScreen)
+        assertEquals(ScreenBounds(300, 100, 390, 150), target.buttonBoundsInScreen)
         assertEquals(Rect(350, 10, 395, 55), target.xBoundsInScreen)
         assertTrue(target.isEnabled)
         assertTrue(target.isVisibleToUser)
