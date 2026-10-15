@@ -111,7 +111,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), 0, dp(16), 0)
             minHeight = dp(28)
-            background = roundedDrawable(Color.rgb(190, 45, 45), 0)
+            background = roundedDrawable(palette.reject, 0)
             visibility = View.GONE
         }
         root.addView(pauseBanner, LinearLayout.LayoutParams(
