@@ -404,6 +404,10 @@ class OfferAccessibilityService : AccessibilityService() {
                 return
             }
 
+            if (!AutoAcceptanceStore.isEnabled(this)) {
+                LogStore.add(this, "ACEPTACIÓN CANCELADA: la tarjeta cambió")
+                return
+            }
             AutoAcceptanceStore.markAttempted(this, fingerprint)
             AutoAcceptanceStore.markClickAttempt(this)
             val clickResult = OfferClicker.click(freshTarget, freshRoot)
