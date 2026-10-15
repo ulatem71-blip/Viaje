@@ -507,7 +507,7 @@ class MainActivity : Activity() {
         val enabled = manager.getEnabledAccessibilityServiceList(
             AccessibilityServiceInfo.FEEDBACK_ALL_MASK
         ).any { it.id?.contains(packageName) == true }
-        val statusColor = if (enabled) Color.rgb(35, 145, 75) else Color.rgb(190, 45, 45)
+        val statusColor = if (systemOn && enabled) Color.rgb(35, 145, 75) else Color.rgb(190, 45, 45)
         statusText.text = if (enabled) "Activo" else "Apagado"
         statusText.setTextColor(statusColor)
         statusText.background = roundedDrawable(statusColor, 16)
