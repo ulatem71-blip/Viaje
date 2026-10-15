@@ -326,7 +326,7 @@ class OfferAccessibilityService : AccessibilityService() {
         if (!AutoAcceptanceStore.isEnabled(this)) return
         if (target.buttonType != "Aceptar") return
         val fingerprint = OfferClicker.fingerprint(parsed)
-        if (AutoAcceptanceStore.wasAccepted(this, fingerprint)) {
+        if (AutoAcceptanceStore.wasAttempted(this, fingerprint)) {
             LogStore.add(this, "ACEPTACIÓN OMITIDA: oferta ya intentada fingerprint=$fingerprint")
             return
         }
@@ -404,7 +404,7 @@ class OfferAccessibilityService : AccessibilityService() {
                 return
             }
 
-            AutoAcceptanceStore.markAccepted(this, fingerprint)
+            AutoAcceptanceStore.markAttempted(this, fingerprint)
             AutoAcceptanceStore.markClickAttempt(this)
             val clickResult = OfferClicker.click(freshTarget, freshRoot)
             if (!clickResult.actionInvoked) {
