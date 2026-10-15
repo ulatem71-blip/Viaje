@@ -3,6 +3,8 @@ package com.viajerentable.app
 import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityNodeInfo
 
 data class AcceptanceGateInput(
@@ -182,13 +184,17 @@ object OfferClicker {
     fun playClickSound() {
         val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
         tone.startTone(ToneGenerator.TONE_PROP_ACK, 180)
-        tone.release()
+        Handler(Looper.getMainLooper()).postDelayed({
+            tone.release()
+        }, 250L)
     }
 
     fun playSafetyWarning() {
         val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
         tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
-        tone.release()
+        Handler(Looper.getMainLooper()).postDelayed({
+            tone.release()
+        }, 600L)
     }
 
     private fun findExactAcceptButton(
