@@ -59,11 +59,11 @@ object OfferButtonLocator {
         visit(root, emptyList()) { node, path ->
             val buttonType = node.text?.trim()
             if (node.className.substringAfterLast('.').equals("Button", true) &&
-                buttonType in buttonTypes
+                buttonType != null && buttonType in buttonTypes
             ) {
                 val buttonKey = "${buttonType}:${node.boundsInScreen.flattenToString()}"
                 if (seenButtons.add(buttonKey)) {
-                    locateForButton(node, path, buttonType!!, cards, ambiguous)
+                    locateForButton(node, path, buttonType, cards, ambiguous)
                 }
             }
         }
