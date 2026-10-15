@@ -48,7 +48,18 @@ class MainActivity:Activity(){
  c.addView(Button(this).apply{text="Exportar auditoría CSV";setOnClickListener{exportAuditCsv()}})
  c.addView(title("Diagnóstico de captura"));logs=TextView(this).apply{setTextIsSelectable(true)};c.addView(logs);c.addView(Button(this).apply{text="Borrar diagnósticos";setOnClickListener{LogStore.clear(this@MainActivity);refresh()}})
  val root=LinearLayout(this).apply{orientation=1}
- val stopButton=Button(this).apply{text="DETENER TODO";textSize=22f;setOnClickListener{AutoAcceptanceStore.setEnabled(this@MainActivity,false);setAcceptanceSwitchChecked(false);LogStore.add(this@MainActivity,"ACEPTACIÓN AUTOMÁTICA APAGADA: DETENER TODO pulsado");LogStore.addAudit(this@MainActivity,java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale.getDefault()).format(java.util.Date())+"| | | | | | |DETENER TODO")}
+ val stopButton = Button(this).apply {
+  text = "DETENER TODO"
+  textSize = 22f
+  setOnClickListener {
+   AutoAcceptanceStore.setEnabled(this@MainActivity, false)
+   setAcceptanceSwitchChecked(false)
+   LogStore.add(this@MainActivity, "ACEPTACIÓN AUTOMÁTICA APAGADA: DETENER TODO pulsado")
+   val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(java.util.Date())
+   LogStore.addAudit(this@MainActivity, "$timestamp| | | | | | |DETENER TODO")
+   refresh()
+  }
+ }
  root.addView(stopButton,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT))
  autoAcceptanceSwitch=Switch(this).apply{text="Aceptación automática (REAL)";isChecked=AutoAcceptanceStore.isEnabled(this@MainActivity)}
  autoAcceptanceSwitch.setOnCheckedChangeListener{_,checked->
