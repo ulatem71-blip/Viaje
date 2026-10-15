@@ -1,78 +1,764 @@
 package com.viajerentable.app
+
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
-import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.provider.Settings
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Switch
+import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-class MainActivity:Activity(){
- private lateinit var status:TextView;private lateinit var screen:TextView;private lateinit var treeDumpView:TextView;private lateinit var treeDumpSwitch:Switch;private lateinit var trips:TextView;private lateinit var offers:TextView;private lateinit var reason:EditText;private lateinit var logs:TextView
- private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText;private lateinit var demoSwitch:Switch;private lateinit var simulationInput:EditText;private lateinit var simulationOutput:TextView;private lateinit var buttonTrialCounters:TextView
- override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val pad=(16*resources.displayMetrics.density).toInt();val c=LinearLayout(this).apply{orientation=1;setPadding(pad,pad,pad,pad)}
- c.addView(TextView(this).apply{text="Viaje Rentable ${appVersion()}";textSize=25f});status=TextView(this);c.addView(status)
- c.addView(Button(this).apply{text="Abrir ajustes de accesibilidad";setOnClickListener{startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))}})
- c.addView(Button(this).apply{text="Actualizar datos de Uber";setOnClickListener{refresh()}})
- c.addView(title("Última pantalla de Uber"));c.addView(TextView(this).apply{text="Texto accesible de Uber, no una captura de imagen."});screen=TextView(this).apply{setTextIsSelectable(true)};c.addView(screen)
- c.addView(title("Volcado de estructura de pantalla"));treeDumpSwitch=Switch(this).apply{text="Capturar estructura de pantalla";isChecked=ScreenTreeDumpStore.isEnabled(this@MainActivity);setOnCheckedChangeListener{_,checked->ScreenTreeDumpStore.setEnabled(this@MainActivity,checked);status.text=if(checked)"Captura de estructura activada; solo con Aceptar o Me interesa." else "Captura de estructura desactivada.";}};c.addView(treeDumpSwitch)
- c.addView(Button(this).apply{text="Copiar último volcado";setOnClickListener{val dump=ScreenTreeDumpStore.lastDump(this@MainActivity);if(dump.isBlank()){status.text="Todavía no hay un volcado guardado.";return@setOnClickListener};val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager;clipboard.setPrimaryClip(ClipData.newPlainText("Último volcado de pantalla",dump));status.text="Último volcado copiado al portapapeles."}})
- treeDumpView=TextView(this).apply{setTextIsSelectable(true)};c.addView(treeDumpView)
- c.addView(title("Guardar viaje aceptado"));reason=EditText(this).apply{hint="Motivo de aceptación";minLines=2};c.addView(reason)
- c.addView(Button(this).apply{text="Guardar como viaje aceptado";setOnClickListener{if(AcceptedTripStore.add(this@MainActivity,reason.text.toString(),AcceptedTripStore.latestScreen(this@MainActivity))){TripAlertSound.play(this@MainActivity);reason.setText("");refresh();status.text=status.text.toString()+"\nViaje guardado localmente; alerta sonora reproducida."}else status.text="No hay texto de Uber guardado todavía."}})
- c.addView(title("Viajes aceptados guardados"));trips=TextView(this).apply{setTextIsSelectable(true)};c.addView(trips);c.addView(Button(this).apply{text="Borrar viajes aceptados";setOnClickListener{AcceptedTripStore.clear(this@MainActivity);refresh()}})
- c.addView(title("Modo demo"));demoSwitch=Switch(this).apply{text="Modo demo";isChecked=DemoModeStore.isEnabled(this@MainActivity);setOnCheckedChangeListener{_,checked->DemoModeStore.setEnabled(this@MainActivity,checked);refresh()}};c.addView(demoSwitch);c.addView(TextView(this).apply{text="Solo simula: no acepta ni rechaza viajes en Uber"})
- c.addView(title("Ofertas registradas"));offers=TextView(this).apply{setTextIsSelectable(true)};c.addView(offers);c.addView(Button(this).apply{text="Exportar CSV";setOnClickListener{exportCsv()}})
- c.addView(title("Simular oferta"));simulationInput=EditText(this).apply{hint="Pega aquí el texto de una oferta";minLines=4;maxLines=8;gravity=android.view.Gravity.TOP;inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE};c.addView(simulationInput)
- c.addView(Button(this).apply{text="Usar ejemplo";setOnClickListener{simulationInput.setText("UberX | CRC1,404.33 | A 7 min (1.4 km) | Viaje: 10 min (2.7 km) | Aceptar");simulationOutput.text=""}})
- c.addView(Button(this).apply{text="Simular";setOnClickListener{simulateOffer()}});simulationOutput=TextView(this).apply{setTextIsSelectable(true)};c.addView(simulationOutput)
- c.addView(title("Costos configurables"));kmL=input(c,"kmPerLiter","18");fuel=input(c,"fuelPricePerLiter","720");maint=input(c,"maintenancePerKm","25");hour=input(c,"minimumNetPerHour","2500");km=input(c,"minimumNetPerKm","250")
- c.addView(Button(this).apply{text="Guardar costos";setOnClickListener{saveCosts()}})
- c.addView(title("Ensayo de localización del botón"));buttonTrialCounters=TextView(this).apply{setTextIsSelectable(true)};c.addView(buttonTrialCounters);c.addView(Button(this).apply{text="Reiniciar contadores del ensayo";setOnClickListener{OfferButtonTrialStore.reset(this@MainActivity);refresh()}})
- c.addView(title("Diagnóstico de captura"));logs=TextView(this).apply{setTextIsSelectable(true)};c.addView(logs);c.addView(Button(this).apply{text="Borrar diagnósticos";setOnClickListener{LogStore.clear(this@MainActivity);refresh()}})
- val scroll=ScrollView(this);scroll.addView(c);setContentView(scroll);loadCosts();refresh()}
- override fun onResume(){super.onResume();if(::status.isInitialized)refresh()}
- private fun appVersion():String {
-  return try {
-   packageManager.getPackageInfo(packageName,0).versionName ?: "?"
-  } catch (e:Exception) {
-   "?"
-  }
- }
- private fun title(s:String)=TextView(this).apply{text=s;textSize=18f;setPadding(0,16,0,4)}
- private fun input(parent:LinearLayout,label:String,default:String):EditText{parent.addView(TextView(this).apply{text=label});return EditText(this).apply{setText(default);inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL;parent.addView(this,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT))}}
- private fun loadCosts(){val x=DriverCostsStore.read(this);kmL.setText(x.kmPerLiter.toString());fuel.setText(x.fuelPricePerLiter.toString());maint.setText(x.maintenancePerKm.toString());hour.setText(x.minimumNetPerHour.toString());km.setText(x.minimumNetPerKm.toString())}
- private fun saveCosts(){val a=kmL.text.toString().toDoubleOrNull();val b=fuel.text.toString().toDoubleOrNull();val d=maint.text.toString().toDoubleOrNull();val e=hour.text.toString().toDoubleOrNull();val f=km.text.toString().toDoubleOrNull()
- if(a==null||a<=0||b==null||b<0||d==null||d<0||e==null||e<0||f==null||f<0){status.text="Valores inválidos; km/l debe ser > 0 y los demás no negativos.";return};DriverCostsStore.save(this,DriverCosts(a,b,d,e,f));status.text="Costos guardados para los próximos cálculos."}
- private fun simulateOffer(){
-  val parsed=OfferParser.parse(simulationInput.text.toString())
-  if(parsed==null){simulationOutput.text="No se detectó una oferta válida. Incluye tarifa y el texto Aceptar o Me interesa.";return}
-  val costs=readCostsFromFields()
-  if(costs==null){simulationOutput.text="Revisa los costos configurables antes de simular.";return}
-  if(!parsed.hasRouteDetails){
-   val demo=DemoDecision.evaluate(parsed,null,costs)
-   simulationOutput.text="Tarifa: ₡${fmt(parsed.fare)}\nNeto: sin datos\nNeto/km: sin datos\nNeto/hora: sin datos\nDecisión demo: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
-   return
-  }
-  val result=Profitability.calculate(Offer(parsed.fare,parsed.pickupKm!!,parsed.pickupMinutes!!,parsed.tripKm!!,parsed.tripMinutes!!),costs)
-  val demo=DemoDecision.evaluate(parsed,result,costs)
-  simulationOutput.text="Tarifa: ₡${fmt(parsed.fare)}\nNeto: ₡${fmt(result.net)}\nNeto/km: ₡${fmt(result.netPerKm)}\nNeto/hora: ₡${fmt(result.netPerHour)}\nDecisión demo: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
- }
- private fun readCostsFromFields():DriverCosts?{
-  val a=kmL.text.toString().toDoubleOrNull();val b=fuel.text.toString().toDoubleOrNull();val d=maint.text.toString().toDoubleOrNull();val e=hour.text.toString().toDoubleOrNull();val f=km.text.toString().toDoubleOrNull()
-  if(a==null||a<=0||b==null||b<0||d==null||d<0||e==null||e<0||f==null||f<0)return null
-  return DriverCosts(a,b,d,e,f)
- }
- private fun exportCsv(){val file=File(cacheDir,"ofertas_viaje_rentable.csv");file.writeText(OffersStore.csv(this),Charsets.UTF_8);val uri=FileProvider.getUriForFile(this,"com.viajerentable.app.fileprovider",file);val i=Intent(Intent.ACTION_SEND).apply{type="text/csv";putExtra(Intent.EXTRA_SUBJECT,"Ofertas registradas");putExtra(Intent.EXTRA_STREAM,uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)};startActivity(Intent.createChooser(i,"Compartir CSV"))}
- private fun refresh(){val m=getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager;val enabled=m.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any{it.id?.contains(packageName)==true};status.text="Servicio de accesibilidad habilitado: $enabled"
- screen.text=AcceptedTripStore.latestScreen(this).ifBlank{"Todavía no hay texto capturado. Abre Uber Driver y deja los datos visibles."};trips.text=AcceptedTripStore.read(this)
- if(::treeDumpView.isInitialized){treeDumpView.text=ScreenTreeDumpStore.lastDump(this).ifBlank{"Todavía no hay un volcado. Activa la opción y deja visible una oferta con Aceptar o Me interesa."}}
- offers.text=OffersStore.read(this).joinToString("\n\n"){x->val p=x.parsed;val r=x.result;val d=x.decision?.let{"\nDemo: $it; motivos: ${x.reasons.joinToString("; ")}"}?:"";"${x.timestamp} | ${if(p.hasRouteDetails)"OFERTA DETALLADA" else "OFERTA COMPACTA"}\nTarifa ₡${fmt(p.fare)}; recogida ${p.pickupKm?.let{fmt(it)+" km / "+fmt(p.pickupMinutes!!)+" min"}?:"pendiente"}; viaje ${p.tripKm?.let{fmt(it)+" km / "+fmt(p.tripMinutes!!)+" min"}?:"pendiente"}\n"+(r?.let{"Neto ₡${fmt(it.net)}; ₡/km ${fmt(it.netPerKm)}; ₡/hora ${fmt(it.netPerHour)}; recomendado=${it.recommended}"}?:"Rentabilidad pendiente")+d}.ifBlank{"Todavía no hay ofertas registradas."}
- val trial=OfferButtonTrialStore.read(this);if(::buttonTrialCounters.isInitialized){buttonTrialCounters.text="ACEPTARIA con botón localizado: ${trial.acceptedWithButton}\nACEPTARIA sin botón: ${trial.acceptedWithoutButton}\nAmbiguas: ${trial.ambiguous}\nDiscrepancias: ${trial.discrepancies}"}
- logs.text=LogStore.read(this)}
- private fun fmt(v:Double)=String.format(Locale.US,"%.2f",v)
+
+class MainActivity : Activity() {
+    private lateinit var statusText: TextView
+    private lateinit var latestOfferCard: LinearLayout
+    private lateinit var offersPage: LinearLayout
+    private lateinit var costsPage: LinearLayout
+    private lateinit var diagnosticsPage: LinearLayout
+    private lateinit var homePage: LinearLayout
+    private lateinit var pageHost: FrameLayout
+    private lateinit var tabs: LinearLayout
+
+    private lateinit var kmPerLiterInput: EditText
+    private lateinit var fuelPriceInput: EditText
+    private lateinit var maintenanceInput: EditText
+    private lateinit var minimumPerKmInput: EditText
+    private lateinit var minimumPerHourInput: EditText
+    private lateinit var maxPickupInput: EditText
+    private lateinit var acPercentInput: EditText
+    private lateinit var acSwitch: Switch
+    private lateinit var demoSwitch: Switch
+    private lateinit var treeDumpSwitch: Switch
+    private lateinit var simulationInput: EditText
+    private lateinit var simulationOutput: TextView
+    private lateinit var liveDiagnosticText: TextView
+    private lateinit var manualTripsText: TextView
+    private lateinit var treeDumpText: TextView
+    private lateinit var trialCountersText: TextView
+    private lateinit var saveCostsButton: Button
+
+    private val pageViews = mutableListOf<LinearLayout>()
+    private val tabButtons = mutableListOf<Button>()
+    private val pageNames = listOf("Inicio", "Ofertas", "Costos", "Diagnóstico")
+    private var activePage = 0
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        buildInterface()
+        loadCosts()
+        showPage(0)
+        refreshAll()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::statusText.isInitialized) {
+            refreshAll()
+        }
+    }
+
+    private fun buildInterface() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(themeColor(android.R.attr.colorBackground))
+        }
+
+        val header = TextView(this).apply {
+            text = "Viaje Rentable ${appVersion()}"
+            textSize = 28f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(themeColor(android.R.attr.textColorPrimary))
+            setPadding(dp(20), dp(18), dp(20), dp(12))
+        }
+        root.addView(header)
+
+        val tabScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+        }
+        tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8), dp(4), dp(8), dp(8))
+        }
+        for (name in pageNames) {
+            val tab = Button(this).apply {
+                text = name
+                textSize = 16f
+                minHeight = dp(48)
+                isAllCaps = false
+                setOnClickListener {
+                    val index = pageNames.indexOf(name)
+                    showPage(index)
+                }
+            }
+            tabButtons.add(tab)
+            tabs.addView(tab, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = dp(6)
+            })
+        }
+        tabScroll.addView(tabs)
+        root.addView(tabScroll)
+
+        pageHost = FrameLayout(this)
+        root.addView(pageHost, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        ))
+
+        homePage = createPage()
+        offersPage = createPage()
+        costsPage = createPage()
+        diagnosticsPage = createPage()
+        pageViews.addAll(listOf(homePage, offersPage, costsPage, diagnosticsPage))
+        for (page in pageViews) {
+            pageHost.addView(page, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+            page.visibility = View.GONE
+        }
+
+        buildHomePage()
+        buildOffersPage()
+        buildCostsPage()
+        buildDiagnosticsPage()
+        setContentView(root)
+    }
+
+    private fun createPage(): LinearLayout {
+        val scroll = ScrollView(this)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(28))
+        }
+        scroll.addView(content)
+        val wrapper = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        wrapper.addView(scroll, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        return wrapper
+    }
+
+    private fun pageContent(page: LinearLayout): LinearLayout {
+        val scroll = page.getChildAt(0) as ScrollView
+        return scroll.getChildAt(0) as LinearLayout
+    }
+
+    private fun buildHomePage() {
+        val content = pageContent(homePage)
+        content.addView(sectionTitle("Servicio de accesibilidad"))
+        val serviceCard = card()
+        statusText = TextView(this).apply {
+            textSize = 20f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        serviceCard.addView(statusText)
+        serviceCard.addView(actionButton("Abrir ajustes de accesibilidad") {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        })
+        content.addView(serviceCard)
+
+        content.addView(sectionTitle("Última oferta"))
+        latestOfferCard = card()
+        content.addView(latestOfferCard)
+
+        content.addView(sectionTitle("Interruptores"))
+        val switchesCard = card()
+        demoSwitch = Switch(this).apply {
+            text = "Anotar decisiones simuladas"
+            textSize = 18f
+            minHeight = dp(52)
+            isChecked = DemoModeStore.isEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                DemoModeStore.setEnabled(this@MainActivity, checked)
+                refreshAll()
+            }
+        }
+        switchesCard.addView(demoSwitch)
+        treeDumpSwitch = Switch(this).apply {
+            text = "Capturar estructura de pantalla"
+            textSize = 18f
+            minHeight = dp(52)
+            isChecked = ScreenTreeDumpStore.isEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                ScreenTreeDumpStore.setEnabled(this@MainActivity, checked)
+                showToast(if (checked) "Captura activada" else "Captura desactivada")
+            }
+        }
+        switchesCard.addView(treeDumpSwitch)
+        content.addView(switchesCard)
+
+        content.addView(sectionTitle("Contadores de hoy"))
+        val dailyCard = card()
+        dailyCard.addView(TextView(this).apply {
+            tag = "daily_counters"
+            textSize = 18f
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        })
+        content.addView(dailyCard)
+    }
+
+    private fun buildOffersPage() {
+        val content = pageContent(offersPage)
+        val heading = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        heading.addView(sectionTitle("Ofertas registradas"), LinearLayout.LayoutParams(0, dp(48), 1f))
+        heading.addView(actionButton("Exportar CSV") { exportCsv() })
+        content.addView(heading)
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            tag = "offers_list"
+        }
+        content.addView(list)
+    }
+
+    private fun buildCostsPage() {
+        val content = pageContent(costsPage)
+        content.addView(sectionTitle("Vehículo"))
+        val vehicleCard = card()
+        kmPerLiterInput = labeledInput(vehicleCard, "Consumo del vehículo (km/L)", "18")
+        fuelPriceInput = labeledInput(vehicleCard, "Precio del combustible (₡/L)", "720")
+        maintenanceInput = labeledInput(vehicleCard, "Mantenimiento (₡/km)", "25")
+        content.addView(vehicleCard)
+
+        content.addView(sectionTitle("Mínimos"))
+        val minimumCard = card()
+        minimumPerKmInput = labeledInput(minimumCard, "Neto mínimo (₡/km)", "250")
+        minimumPerHourInput = labeledInput(minimumCard, "Neto mínimo (₡/hora)", "2500")
+        content.addView(minimumCard)
+
+        content.addView(sectionTitle("Recogida"))
+        val pickupCard = card()
+        maxPickupInput = labeledInput(pickupCard, "Distancia máxima de recogida (km)", "2.0")
+        content.addView(pickupCard)
+
+        content.addView(sectionTitle("Aire acondicionado"))
+        val acCard = card()
+        acSwitch = Switch(this).apply {
+            text = "A/C encendido"
+            textSize = 18f
+            minHeight = dp(52)
+        }
+        acCard.addView(acSwitch)
+        acPercentInput = labeledInput(acCard, "Consumo extra con A/C (%)", "10")
+        val rangeHelp = bodyText("Rangos: 0–50 % de consumo extra; recogida 0,1–20 km.")
+        acCard.addView(rangeHelp)
+        content.addView(acCard)
+
+        val resultCard = card()
+        resultCard.addView(TextView(this).apply {
+            tag = "fuel_cost_preview"
+            textSize = 18f
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        })
+        content.addView(resultCard)
+
+        saveCostsButton = actionButton("Guardar") { saveCosts() }
+        content.addView(saveCostsButton)
+    }
+
+    private fun buildDiagnosticsPage() {
+        val content = pageContent(diagnosticsPage)
+        content.addView(sectionTitle("Simulador de oferta"))
+        val simulatorCard = card()
+        simulationInput = EditText(this).apply {
+            hint = "Pega el texto de una oferta"
+            textSize = 18f
+            minLines = 3
+            maxLines = 6
+            gravity = Gravity.TOP
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        }
+        simulatorCard.addView(simulationInput)
+        simulatorCard.addView(actionButton("Usar ejemplo") {
+            simulationInput.setText("UberX | CRC1,404.33 | A 7 min (1.4 km) | Viaje: 10 min (2.7 km) | Aceptar")
+        })
+        simulatorCard.addView(actionButton("Simular") { simulateOffer() })
+        simulationOutput = bodyText("")
+        simulatorCard.addView(simulationOutput)
+        content.addView(simulatorCard)
+
+        content.addView(sectionTitle("Diagnóstico en vivo"))
+        val diagnosticCard = card()
+        liveDiagnosticText = bodyText("")
+        diagnosticCard.addView(liveDiagnosticText)
+        diagnosticCard.addView(actionButton("Copiar diagnóstico") {
+            copyToClipboard("Diagnóstico", LogStore.read(this))
+        })
+        diagnosticCard.addView(actionButton("Borrar diagnóstico") {
+            LogStore.clear(this)
+            refreshDiagnostics()
+        })
+        content.addView(diagnosticCard)
+
+        content.addView(sectionTitle("Viajes aceptados manualmente"))
+        val tripCard = card()
+        val reasonInput = EditText(this).apply {
+            hint = "Motivo (opcional)"
+            textSize = 18f
+            minLines = 2
+        }
+        tripCard.addView(reasonInput)
+        tripCard.addView(actionButton("Guardar viaje aceptado") {
+            val screen = AcceptedTripStore.latestScreen(this)
+            if (AcceptedTripStore.add(this, reasonInput.text.toString(), screen)) {
+                reasonInput.setText("")
+                showToast("Viaje guardado")
+                refreshDiagnostics()
+            } else {
+                showToast("Todavía no hay datos visibles de Uber")
+            }
+        })
+        manualTripsText = bodyText("")
+        tripCard.addView(manualTripsText)
+        tripCard.addView(actionButton("Borrar viajes aceptados") {
+            AcceptedTripStore.clear(this)
+            refreshDiagnostics()
+        })
+        content.addView(tripCard)
+
+        content.addView(sectionTitle("Volcado de estructura de pantalla"))
+        val treeCard = card()
+        treeDumpText = bodyText("")
+        treeCard.addView(treeDumpText)
+        treeCard.addView(actionButton("Copiar último volcado") {
+            copyToClipboard("Volcado de pantalla", ScreenTreeDumpStore.lastDump(this))
+        })
+        content.addView(treeCard)
+
+        content.addView(sectionTitle("Contadores del ensayo"))
+        val trialCard = card()
+        trialCountersText = bodyText("")
+        trialCard.addView(trialCountersText)
+        trialCard.addView(actionButton("Reiniciar contadores") {
+            OfferButtonTrialStore.reset(this)
+            refreshDiagnostics()
+        })
+        content.addView(trialCard)
+    }
+
+    private fun showPage(index: Int) {
+        activePage = index.coerceIn(0, pageViews.lastIndex)
+        for (i in pageViews.indices) {
+            pageViews[i].visibility = if (i == activePage) View.VISIBLE else View.GONE
+            tabButtons[i].isSelected = i == activePage
+            tabButtons[i].alpha = if (i == activePage) 1f else 0.72f
+        }
+        refreshAll()
+    }
+
+    private fun loadCosts() {
+        val costs = DriverCostsStore.read(this)
+        kmPerLiterInput.setText(costs.kmPerLiter.toString())
+        fuelPriceInput.setText(costs.fuelPricePerLiter.toString())
+        maintenanceInput.setText(costs.maintenancePerKm.toString())
+        minimumPerKmInput.setText(costs.minimumNetPerKm.toString())
+        minimumPerHourInput.setText(costs.minimumNetPerHour.toString())
+        maxPickupInput.setText(costs.maxPickupKm.toString())
+        acSwitch.isChecked = costs.acEnabled
+        acPercentInput.setText(costs.acExtraPercent.toString())
+        updateFuelCostPreview()
+        acSwitch.setOnCheckedChangeListener { _, _ -> updateFuelCostPreview() }
+        acPercentInput.addTextChangedListener(SimpleTextWatcher { updateFuelCostPreview() })
+        maxPickupInput.addTextChangedListener(SimpleTextWatcher { updateFuelCostPreview() })
+        fuelPriceInput.addTextChangedListener(SimpleTextWatcher { updateFuelCostPreview() })
+        kmPerLiterInput.addTextChangedListener(SimpleTextWatcher { updateFuelCostPreview() })
+    }
+
+    private fun readCostsFromFields(): DriverCosts? {
+        val kmPerLiter = kmPerLiterInput.text.toString().toDoubleOrNull()
+        val fuelPrice = fuelPriceInput.text.toString().toDoubleOrNull()
+        val maintenance = maintenanceInput.text.toString().toDoubleOrNull()
+        val minimumPerKm = minimumPerKmInput.text.toString().toDoubleOrNull()
+        val minimumPerHour = minimumPerHourInput.text.toString().toDoubleOrNull()
+        val maxPickup = maxPickupInput.text.toString().toDoubleOrNull()
+        val acPercent = acPercentInput.text.toString().toDoubleOrNull()
+
+        if (kmPerLiter == null || kmPerLiter <= 0.0 ||
+            fuelPrice == null || fuelPrice < 0.0 ||
+            maintenance == null || maintenance < 0.0 ||
+            minimumPerKm == null || minimumPerKm < 0.0 ||
+            minimumPerHour == null || minimumPerHour < 0.0 ||
+            maxPickup == null || maxPickup !in 0.1..20.0 ||
+            acPercent == null || acPercent !in 0.0..50.0
+        ) {
+            return null
+        }
+
+        return DriverCosts(
+            kmPerLiter = kmPerLiter,
+            fuelPricePerLiter = fuelPrice,
+            maintenancePerKm = maintenance,
+            minimumNetPerHour = minimumPerHour,
+            minimumNetPerKm = minimumPerKm,
+            acEnabled = acSwitch.isChecked,
+            acExtraPercent = acPercent,
+            maxPickupKm = maxPickup
+        )
+    }
+
+    private fun saveCosts() {
+        val costs = readCostsFromFields()
+        if (costs == null) {
+            showToast("Revisa los valores y sus rangos.")
+            return
+        }
+        DriverCostsStore.save(this, costs)
+        updateFuelCostPreview()
+        showToast("Costos guardados")
+        refreshAll()
+    }
+
+    private fun updateFuelCostPreview() {
+        if (!::kmPerLiterInput.isInitialized) {
+            return
+        }
+        val kmPerLiter = kmPerLiterInput.text.toString().toDoubleOrNull()
+        val fuelPrice = fuelPriceInput.text.toString().toDoubleOrNull()
+        val acPercent = acPercentInput.text.toString().toDoubleOrNull()
+        val multiplier = if (::acSwitch.isInitialized && acSwitch.isChecked) {
+            1.0 + (acPercent ?: 10.0).coerceIn(0.0, 50.0) / 100.0
+        } else {
+            1.0
+        }
+        val value = if (kmPerLiter != null && kmPerLiter > 0.0 && fuelPrice != null) {
+            fuelPrice / kmPerLiter * multiplier
+        } else {
+            null
+        }
+        val preview = costsPage.findViewWithTag<TextView>("fuel_cost_preview")
+        preview?.text = value?.let { "Costo de combustible resultante: ₡${fmt(it)}/km" }
+            ?: "Introduce consumo y precio válidos para calcular el costo por km."
+    }
+
+    private fun simulateOffer() {
+        val parsed = OfferParser.parse(simulationInput.text.toString())
+        if (parsed == null) {
+            simulationOutput.text = "No se detectó una oferta válida. Incluye tarifa y el texto Aceptar o Me interesa."
+            return
+        }
+        val costs = readCostsFromFields()
+        if (costs == null) {
+            simulationOutput.text = "Revisa los costos configurables antes de simular."
+            return
+        }
+        if (!parsed.hasRouteDetails) {
+            val demo = DemoDecision.evaluate(parsed, null, costs)
+            simulationOutput.text = "Tarifa: ₡${fmt(parsed.fare)}\nNeto: sin datos\nNeto/km: sin datos\nNeto/hora: sin datos\nDecisión: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
+            return
+        }
+        val result = calculate(parsed, costs)
+        val demo = DemoDecision.evaluate(parsed, result, costs)
+        simulationOutput.text = "Tarifa: ₡${fmt(parsed.fare)}\nNeto: ₡${fmt(result.net)}\nNeto/km: ₡${fmt(result.netPerKm)}\nNeto/hora: ₡${fmt(result.netPerHour)}\nA/C: ${if (costs.acEnabled) "sí" else "no"}\nDecisión: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
+    }
+
+    private fun calculate(parsed: ParsedOffer, costs: DriverCosts): ProfitResult {
+        return Profitability.calculate(
+            Offer(
+                parsed.fare,
+                parsed.pickupKm!!,
+                parsed.pickupMinutes!!,
+                parsed.tripKm!!,
+                parsed.tripMinutes!!
+            ),
+            costs
+        )
+    }
+
+    private fun refreshAll() {
+        refreshHome()
+        refreshOffers()
+        refreshDiagnostics()
+        updateFuelCostPreview()
+    }
+
+    private fun refreshHome() {
+        val manager = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
+        val enabled = manager.getEnabledAccessibilityServiceList(
+            AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+        ).any { it.id?.contains(packageName) == true }
+        val statusColor = if (enabled) Color.rgb(35, 145, 75) else Color.rgb(190, 45, 45)
+        statusText.text = if (enabled) "Activo" else "Apagado"
+        statusText.setTextColor(statusColor)
+        statusText.background = roundedDrawable(statusColor, 16)
+        statusText.setPadding(dp(16), dp(14), dp(16), dp(14))
+
+        latestOfferCard.removeAllViews()
+        val latest = OffersStore.read(this).firstOrNull()
+        if (latest == null) {
+            latestOfferCard.addView(bodyText("Todavía no hay ofertas registradas."))
+        } else {
+            val parsed = latest.parsed
+            val decision = latest.decision ?: Decision.SIN_DATOS
+            latestOfferCard.addView(TextView(this).apply {
+                text = "₡${fmt(parsed.fare)}"
+                textSize = 32f
+                setTypeface(typeface, Typeface.BOLD)
+            })
+            latestOfferCard.addView(bodyText(
+                "Hora: ${latest.timestamp}\n" +
+                    "Recogida: ${parsed.pickupKm?.let { fmt(it) + " km / " + fmt(parsed.pickupMinutes ?: 0.0) + " min" } ?: "Sin datos"}\n" +
+                    "Viaje: ${parsed.tripKm?.let { fmt(it) + " km / " + fmt(parsed.tripMinutes ?: 0.0) + " min" } ?: "Sin datos"}"
+            ))
+            latest.result?.let { result ->
+                latestOfferCard.addView(bodyText(
+                    "Neto/km: ₡${fmt(result.netPerKm)}\nNeto/hora: ₡${fmt(result.netPerHour)}\nA/C=${if (latest.acEnabled) "sí" else "no"}"
+                ))
+            }
+            latestOfferCard.addView(decisionBadge(decision))
+            if (latest.reasons.isNotEmpty()) {
+                latestOfferCard.addView(bodyText(latest.reasons.joinToString("\n")))
+            }
+        }
+
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val daily = OffersStore.read(this).filter { it.timestamp.startsWith(today) }
+        val accepted = daily.count { it.decision == Decision.ACEPTARIA }
+        val rejected = daily.count { it.decision == Decision.RECHAZARIA }
+        homePage.findViewWithTag<TextView>("daily_counters")?.text =
+            "Ofertas vistas: ${daily.size}\nACEPTARÍA: $accepted\nRECHAZARÍA: $rejected"
+        if (::demoSwitch.isInitialized) {
+            demoSwitch.isChecked = DemoModeStore.isEnabled(this)
+        }
+        if (::treeDumpSwitch.isInitialized) {
+            treeDumpSwitch.isChecked = ScreenTreeDumpStore.isEnabled(this)
+        }
+    }
+
+    private fun refreshOffers() {
+        val list = offersPage.findViewWithTag<LinearLayout>("offers_list") ?: return
+        list.removeAllViews()
+        val offers = OffersStore.read(this)
+        if (offers.isEmpty()) {
+            list.addView(bodyText("Todavía no hay ofertas registradas."))
+            return
+        }
+        for (offer in offers) {
+            val offerCard = card()
+            offerCard.addView(TextView(this).apply {
+                text = "₡${fmt(offer.parsed.fare)}"
+                textSize = 28f
+                setTypeface(typeface, Typeface.BOLD)
+            })
+            offerCard.addView(bodyText(
+                offer.timestamp + "\n" +
+                    "Recogida: ${offer.parsed.pickupKm?.let { fmt(it) + " km" } ?: "Sin datos"}; " +
+                    "viaje: ${offer.parsed.tripKm?.let { fmt(it) + " km" } ?: "Sin datos"}"
+            ))
+            offerCard.addView(decisionBadge(offer.decision ?: Decision.SIN_DATOS))
+            if (offer.result != null) {
+                offerCard.addView(bodyText(
+                    "Neto/km ₡${fmt(offer.result.netPerKm)} · Neto/hora ₡${fmt(offer.result.netPerHour)} · A/C=${if (offer.acEnabled) "sí" else "no"}"
+                ))
+            }
+            if (offer.reasons.isNotEmpty()) {
+                offerCard.addView(bodyText("Motivos: ${offer.reasons.joinToString("; ")}"))
+            }
+            list.addView(offerCard)
+        }
+    }
+
+    private fun refreshDiagnostics() {
+        if (!::liveDiagnosticText.isInitialized) {
+            return
+        }
+        liveDiagnosticText.text = LogStore.read(this)
+        manualTripsText.text = AcceptedTripStore.read(this)
+        treeDumpText.text = ScreenTreeDumpStore.lastDump(this)
+            .ifBlank { "Todavía no hay un volcado guardado." }
+        val counters = OfferButtonTrialStore.read(this)
+        trialCountersText.text =
+            "ACEPTARÍA con botón localizado: ${counters.acceptedWithButton}\n" +
+                "ACEPTARÍA sin botón: ${counters.acceptedWithoutButton}\n" +
+                "Tarjetas ambiguas: ${counters.ambiguous}\nDiscrepancias: ${counters.discrepancies}"
+    }
+
+    private fun decisionBadge(decision: Decision): TextView {
+        val (label, color) = when (decision) {
+            Decision.ACEPTARIA -> "ACEPTARÍA" to Color.rgb(35, 145, 75)
+            Decision.RECHAZARIA -> "RECHAZARÍA" to Color.rgb(190, 45, 45)
+            Decision.SIN_DATOS -> "SIN DATOS" to Color.rgb(105, 105, 115)
+        }
+        return TextView(this).apply {
+            text = label
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            minHeight = dp(40)
+            setPadding(dp(14), dp(6), dp(14), dp(6))
+            background = roundedDrawable(color, 20)
+        }
+    }
+
+    private fun card(): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = roundedDrawable(themeColor(android.R.attr.colorBackgroundFloating), 16)
+            elevation = dp(2).toFloat()
+            val params = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            params.bottomMargin = dp(12)
+            layoutParams = params
+        }
+    }
+
+    private fun sectionTitle(text: String): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 21f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(themeColor(android.R.attr.textColorPrimary))
+            setPadding(0, dp(12), 0, dp(8))
+        }
+    }
+
+    private fun bodyText(text: String): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 17f
+            setTextColor(themeColor(android.R.attr.textColorPrimary))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setTextIsSelectable(true)
+        }
+    }
+
+    private fun labeledInput(parent: LinearLayout, label: String, default: String): EditText {
+        parent.addView(TextView(this).apply {
+            text = label
+            textSize = 16f
+            setTextColor(themeColor(android.R.attr.textColorPrimary))
+            setPadding(dp(4), dp(8), dp(4), dp(2))
+        })
+        val field = EditText(this).apply {
+            setText(default)
+            textSize = 18f
+            minHeight = dp(48)
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        }
+        parent.addView(field, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+        return field
+    }
+
+    private fun actionButton(label: String, action: () -> Unit): Button {
+        return Button(this).apply {
+            text = label
+            textSize = 16f
+            isAllCaps = false
+            minHeight = dp(48)
+            setOnClickListener { action() }
+        }
+    }
+
+    private fun roundedDrawable(color: Int, radiusDp: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radiusDp).toFloat()
+        }
+    }
+
+    private fun themeColor(attribute: Int): Int {
+        val value = TypedValue()
+        theme.resolveAttribute(attribute, value, true)
+        if (value.resourceId != 0) {
+            return getColor(value.resourceId)
+        }
+        return value.data
+    }
+
+    private fun copyToClipboard(label: String, text: String) {
+        if (text.isBlank()) {
+            showToast("No hay contenido para copiar")
+            return
+        }
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+        showToast("Copiado")
+    }
+
+    private fun exportCsv() {
+        val file = File(cacheDir, "ofertas_viaje_rentable.csv")
+        file.writeText(OffersStore.csv(this), Charsets.UTF_8)
+        val uri = FileProvider.getUriForFile(
+            this,
+            "com.viajerentable.app.fileprovider",
+            file
+        )
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_SUBJECT, "Ofertas registradas")
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, "Compartir CSV"))
+    }
+
+    private fun appVersion(): String {
+        return try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+        } catch (_: Exception) {
+            "?"
+        }
+    }
+
+    private fun fmt(value: Double): String {
+        return String.format(Locale.US, "%.2f", value)
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+}
+
+private class SimpleTextWatcher(
+    private val onChanged: () -> Unit
+) : android.text.TextWatcher {
+    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+
+    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+        onChanged()
+    }
+
+    override fun afterTextChanged(s: android.text.Editable?) = Unit
 }
