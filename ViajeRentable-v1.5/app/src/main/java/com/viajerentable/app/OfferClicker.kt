@@ -163,10 +163,12 @@ object OfferClicker {
             if (!button.isEnabled || !button.isVisibleToUser) {
                 OfferClickResult(false, false)
             } else {
-                OfferClickResult(
-                    actionInvoked = true,
-                    succeeded = button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                )
+                val succeeded = try {
+                    button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                } catch (_: Exception) {
+                    false
+                }
+                OfferClickResult(actionInvoked = true, succeeded = succeeded)
             }
         } finally {
             button.recycle()
