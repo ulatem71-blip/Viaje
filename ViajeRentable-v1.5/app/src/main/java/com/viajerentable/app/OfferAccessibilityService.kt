@@ -419,7 +419,7 @@ class OfferAccessibilityService : AccessibilityService() {
             )
             val route = "recogida ${fmt(parsed.pickupKm!!)} km/${fmt(parsed.pickupMinutes!!)} min; " +
                 "viaje ${fmt(parsed.tripKm!!)} km/${fmt(parsed.tripMinutes!!)} min"
-            val resultText = if (clicked) "performAction=true" else "performAction=false"
+            val resultText = if (clicked) "resultado=true" else "resultado=false"
             val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
             LogStore.addAudit(
                 this,
