@@ -14,7 +14,7 @@ import java.io.File
 import java.util.Locale
 class MainActivity:Activity(){
  private lateinit var status:TextView;private lateinit var screen:TextView;private lateinit var treeDumpView:TextView;private lateinit var treeDumpSwitch:Switch;private lateinit var trips:TextView;private lateinit var offers:TextView;private lateinit var reason:EditText;private lateinit var logs:TextView
- private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText;private lateinit var demoSwitch:Switch;private lateinit var simulationInput:EditText;private lateinit var simulationOutput:TextView;private lateinit var buttonTrialCounters:TextView;private lateinit var autoAcceptanceSwitch:Switch;private lateinit var pickupMax:EditText;private var updatingAcceptanceSwitch=false
+ private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText;private lateinit var demoSwitch:Switch;private lateinit var simulationInput:EditText;private lateinit var simulationOutput:TextView;private lateinit var buttonTrialCounters:TextView;private lateinit var autoAcceptanceSwitch:Switch;private lateinit var pickupMax:EditText;private lateinit var auditView:TextView;private var updatingAcceptanceSwitch=false
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val pad=(16*resources.displayMetrics.density).toInt();val c=LinearLayout(this).apply{orientation=1;setPadding(pad,pad,pad,pad)}
  c.addView(TextView(this).apply{text="Viaje Rentable ${appVersion()}";textSize=25f});status=TextView(this);c.addView(status)
  c.addView(Button(this).apply{text="Abrir ajustes de accesibilidad";setOnClickListener{startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))}})
@@ -34,7 +34,7 @@ class MainActivity:Activity(){
  c.addView(title("Costos configurables"));kmL=input(c,"kmPerLiter","18");fuel=input(c,"fuelPricePerLiter","720");maint=input(c,"maintenancePerKm","25");hour=input(c,"minimumNetPerHour","2500");km=input(c,"minimumNetPerKm","250");pickupMax=input(c,"Recogida máxima km (aceptación real)","2.0")
  c.addView(Button(this).apply{text="Guardar costos";setOnClickListener{saveCosts()}})
  c.addView(title("Ensayo de localización del botón"));buttonTrialCounters=TextView(this).apply{setTextIsSelectable(true)};c.addView(buttonTrialCounters);c.addView(Button(this).apply{text="Reiniciar contadores del ensayo";setOnClickListener{OfferButtonTrialStore.reset(this@MainActivity);refresh()}})
- c.addView(title("Auditoría de aceptación real"));val auditView=TextView(this).apply{setTextIsSelectable(true)};c.addView(auditView)
+ c.addView(title("Auditoría de aceptación real"));auditView=TextView(this).apply{setTextIsSelectable(true)};c.addView(auditView)
  c.addView(Button(this).apply{text="Copiar auditoría";setOnClickListener{val audit=LogStore.readAudit(this@MainActivity);val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager;clipboard.setPrimaryClip(ClipData.newPlainText("Auditoría de aceptación real",audit));status.text="Auditoría copiada."}})
  c.addView(Button(this).apply{text="Exportar auditoría CSV";setOnClickListener{exportAuditCsv()}})
  c.addView(title("Diagnóstico de captura"));logs=TextView(this).apply{setTextIsSelectable(true)};c.addView(logs);c.addView(Button(this).apply{text="Borrar diagnósticos";setOnClickListener{LogStore.clear(this@MainActivity);refresh()}})
@@ -107,6 +107,6 @@ class MainActivity:Activity(){
  if(::treeDumpView.isInitialized){treeDumpView.text=ScreenTreeDumpStore.lastDump(this).ifBlank{"Todavía no hay un volcado. Activa la opción y deja visible una oferta con Aceptar o Me interesa."}}
  offers.text=OffersStore.read(this).joinToString("\n\n"){x->val p=x.parsed;val r=x.result;val d=x.decision?.let{"\nDemo: $it; motivos: ${x.reasons.joinToString("; ")}"}?:"";"${x.timestamp} | ${if(p.hasRouteDetails)"OFERTA DETALLADA" else "OFERTA COMPACTA"}\nTarifa ₡${fmt(p.fare)}; recogida ${p.pickupKm?.let{fmt(it)+" km / "+fmt(p.pickupMinutes!!)+" min"}?:"pendiente"}; viaje ${p.tripKm?.let{fmt(it)+" km / "+fmt(p.tripMinutes!!)+" min"}?:"pendiente"}\n"+(r?.let{"Neto ₡${fmt(it.net)}; ₡/km ${fmt(it.netPerKm)}; ₡/hora ${fmt(it.netPerHour)}; recomendado=${it.recommended}"}?:"Rentabilidad pendiente")+d}.ifBlank{"Todavía no hay ofertas registradas."}
  val trial=OfferButtonTrialStore.read(this);if(::buttonTrialCounters.isInitialized){buttonTrialCounters.text="ACEPTARIA con botón localizado: ${trial.acceptedWithButton}\nACEPTARIA sin botón: ${trial.acceptedWithoutButton}\nAmbiguas: ${trial.ambiguous}\nDiscrepancias: ${trial.discrepancies}"}
- logs.text=LogStore.read(this);if(::autoAcceptanceSwitch.isInitialized){setAcceptanceSwitchChecked(AutoAcceptanceStore.isEnabled(this))}}
+ logs.text=LogStore.read(this);if(::auditView.isInitialized){auditView.text=LogStore.readAudit(this)};if(::autoAcceptanceSwitch.isInitialized){setAcceptanceSwitchChecked(AutoAcceptanceStore.isEnabled(this))}}
  private fun fmt(v:Double)=String.format(Locale.US,"%.2f",v)
 }
