@@ -58,5 +58,18 @@ class OfferDeduplicator(
 
     companion object {
         const val DEFAULT_WINDOW_MS = 120000L
+
+        fun fingerprint(offer: ParsedOffer): String {
+            if (!offer.hasRouteDetails) {
+                return "compact:${String.format(java.util.Locale.US, "%.3f", offer.fare)}"
+            }
+            return listOf(
+                offer.fare,
+                offer.pickupKm!!,
+                offer.pickupMinutes!!,
+                offer.tripKm!!,
+                offer.tripMinutes!!
+            ).joinToString("|") { String.format(java.util.Locale.US, "%.3f", it) }
+        }
     }
 }
