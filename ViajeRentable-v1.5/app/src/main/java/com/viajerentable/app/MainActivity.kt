@@ -450,6 +450,7 @@ class MainActivity : Activity() {
         for (i in pageViews.indices) {
             pageViews[i].visibility = if (i == activePage) View.VISIBLE else View.GONE
             tabButtons[i].isSelected = i == activePage
+            tabButtons[i].getChildAt(0).isSelected = i == activePage
             tabButtons[i].background = roundedDrawable(
                 if (i == activePage) palette.brand else palette.card,
                 12,
@@ -608,11 +609,12 @@ class MainActivity : Activity() {
         latestOfferCard.removeAllViews()
         val latest = OffersStore.read(this).firstOrNull()
         if (!systemOn) {
+            latestOfferCard.background = roundedDrawable(palette.card, 16, palette.reject, 2f)
             latestOfferCard.addView(TextView(this).apply {
                 text = "En pausa"
                 textSize = 28f
                 setTypeface(typeface, Typeface.BOLD)
-                setTextColor(Color.rgb(190, 45, 45))
+                setTextColor(palette.reject)
                 setPadding(dp(8), dp(12), dp(8), dp(12))
             })
         } else if (latest == null) {
@@ -620,6 +622,7 @@ class MainActivity : Activity() {
         } else {
             val parsed = latest.parsed
             val decision = latest.decision ?: Decision.SIN_DATOS
+            latestOfferCard.background = roundedDrawable(palette.card, 16, decisionColor(decision), 2f)
             latestOfferCard.addView(TextView(this).apply {
                 text = "₡${fmt(parsed.fare)}"
                 textSize = 32f
@@ -891,7 +894,7 @@ class MainActivity : Activity() {
         return GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(radiusDp).toFloat()
-            setStroke(dp(strokeWidthDp.toInt().coerceAtLeast(1)), strokeColor)
+            setStroke((strokeWidthDp * resources.displayMetrics.density).toInt().coerceAtLeast(1), strokeColor)
         }
     }
 
@@ -999,6 +1002,7 @@ class MainActivity : Activity() {
             progressTintList = android.content.res.ColorStateList.valueOf(color)
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(palette.border)
             contentDescription = "$label frente al mínimo"
+            background = roundedDrawable(palette.card, 6, palette.border, 1.5f)
         }
         met.addView(progress, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
