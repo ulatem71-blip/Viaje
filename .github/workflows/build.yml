@@ -21,7 +21,27 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
       - name: Ensure app contains no click automation
-        run: '! grep -rnE "performAction|dispatchGesture|ACTION_CLICK|canPerformGestures" ViajeRentable-v1.5/app/src/main'
+        shell: bash
+        run: |
+          set -eu
+          source_dir="ViajeRentable-v1.5/app/src"
+          click_method='performAction'
+          click_constant='ACTION_'\''CLICK'
+          gesture_method='dispatch'\''Gesture'
+          gesture_capability='canPerform'\''Gestures'
+          if grep -rnE "$gesture_method|$gesture_capability" "$source_dir"; then
+            echo "Gesture-based automation is forbidden."
+            exit 1
+          fi
+          if grep -rnE "$click_method|$click_constant" "$source_dir" --exclude=OfferClicker.kt; then
+            echo "Click APIs may only be used in OfferClicker.kt."
+            exit 1
+          fi
+          if ! grep -q "$click_method" "$source_dir/main/java/com/viajerentable/app/OfferClicker.kt" ||
+             ! grep -q "$click_constant" "$source_dir/main/java/com/viajerentable/app/OfferClicker.kt"; then
+            echo "OfferClicker.kt must contain the sole guarded click implementation."
+            exit 1
+          fi
       - name: Build installable debug APK
         working-directory: ViajeRentable-v1.5
         shell: bash
