@@ -83,7 +83,6 @@ data class AutoAcceptanceSafetyState(
 object AutoAcceptanceStore {
     private const val PREFS = "real_acceptance"
     private const val ENABLED = "enabled"
-    private const val MAX_PICKUP_KM = "max_pickup_km"
     private const val LAST_CLICK_AT = "last_click_at"
     private const val ACCEPTED_FINGERPRINTS = "accepted_fingerprints"
     private const val FAILURE_COUNT = "consecutive_failures"
@@ -96,17 +95,6 @@ object AutoAcceptanceStore {
 
     fun setEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(ENABLED, enabled).apply()
-    }
-
-    fun maxPickupKm(context: Context): Double {
-        return prefs(context).getString(MAX_PICKUP_KM, "2.0")?.toDoubleOrNull()
-            ?.takeIf { it >= 0.0 } ?: 2.0
-    }
-
-    fun setMaxPickupKm(context: Context, value: Double) {
-        if (value >= 0.0 && value.isFinite()) {
-            prefs(context).edit().putString(MAX_PICKUP_KM, value.toString()).apply()
-        }
     }
 
     fun mayClickNow(context: Context, nowMs: Long = System.currentTimeMillis()): Boolean {
@@ -229,7 +217,5 @@ object OfferClicker {
         return null
     }
 
-    private fun format(value: Double): String {
-        return String.format(Locale.US, "%.3f", value)
-    }
+
 }
