@@ -102,4 +102,4 @@
 - Diagnóstico: secciones plegables cerradas por defecto y textos de diagnóstico en monoespaciada de 12sp.
 - Navegación inferior con iconos dibujados en código, estado activo turquesa y transiciones de 200 ms; sin animaciones continuas.
 - Añadido icono adaptativo propio turquesa con símbolo de moneda y ruta. Sin cambios al workflow; `Ensure app contains no click automation` queda intacto.
-- CI: pendiente de verificar guard, compilación, pruebas existentes y artefacto APK en Actions.
+- CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38678023367: `Ensure app contains no click automation`, compilación del APK, pruebas unitarias existentes y subida del artefacto completadas correctamente.
