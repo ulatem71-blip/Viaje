@@ -3,12 +3,23 @@ package com.viajerentable.app
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
 
+data class ScreenBounds(
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int
+) {
+    fun toShortString(): String {
+        return "[$left,$top][$right,$bottom]"
+    }
+}
+
 data class CardTarget(
     val fare: Double,
     val cardText: String,
     val buttonType: String,
-    val buttonBoundsInScreen: Rect,
-    val xBoundsInScreen: Rect?,
+    val buttonBoundsInScreen: ScreenBounds,
+    val xBoundsInScreen: ScreenBounds?,
     val isEnabled: Boolean,
     val isVisibleToUser: Boolean
 )
@@ -32,7 +43,7 @@ internal data class OfferTreeNode(
     val isClickable: Boolean = false,
     val isEnabled: Boolean = true,
     val isVisibleToUser: Boolean = true,
-    val boundsInScreen: Rect = Rect(),
+    val boundsInScreen: ScreenBounds = ScreenBounds(0, 0, 0, 0),
     val children: List<OfferTreeNode> = emptyList()
 )
 
@@ -125,8 +136,8 @@ object OfferButtonLocator {
                 fare = target.fare,
                 cardText = appendButton(selectedText, buttonType),
                 buttonType = buttonType,
-                buttonBoundsInScreen = Rect(button.boundsInScreen),
-                xBoundsInScreen = xButton?.let { Rect(it.boundsInScreen) },
+                buttonBoundsInScreen = button.boundsInScreen,
+                xBoundsInScreen = xButton?.boundsInScreen,
                 isEnabled = button.isEnabled,
                 isVisibleToUser = button.isVisibleToUser
             )
