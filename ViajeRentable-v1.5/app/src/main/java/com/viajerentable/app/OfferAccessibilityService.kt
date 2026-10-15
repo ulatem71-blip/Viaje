@@ -487,7 +487,9 @@ class OfferAccessibilityService : AccessibilityService() {
         if (!first.hasRouteDetails || !second.hasRouteDetails) {
             return false
         }
-        return kotlin.math.abs(first.pickupKm!! - second.pickupKm!!) < 0.01 &&
+        return (first.pickupPlace.orEmpty() == second.pickupPlace.orEmpty()) &&
+            (first.destinationPlace.orEmpty() == second.destinationPlace.orEmpty()) &&
+            kotlin.math.abs(first.pickupKm!! - second.pickupKm!!) < 0.01 &&
             kotlin.math.abs(first.pickupMinutes!! - second.pickupMinutes!!) < 0.01 &&
             kotlin.math.abs(first.tripKm!! - second.tripKm!!) < 0.01 &&
             kotlin.math.abs(first.tripMinutes!! - second.tripMinutes!!) < 0.01
