@@ -87,7 +87,7 @@ object OfferButtonLocator {
             val text = subtreeText(ancestor)
             val fares = farePattern.findAll(text).count()
             val hasTrip = text.contains("Viaje:", ignoreCase = true)
-            if (fares > 0 && hasTrip) {
+            if (hasTrip) {
                 selected = ancestor
                 selectedText = text
                 selectedFareMatches = fares
