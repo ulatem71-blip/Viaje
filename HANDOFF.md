@@ -76,3 +76,15 @@
 - Pruebas unitarias nuevas cubren el ajuste de combustible por A/C, mantenimiento sin cambios, A/C apagado y límites de recogida incluyendo oferta compacta.
 - El workflow de CI `Ensure app contains no click automation` se deja intacto; esta tarea no introduce acciones de clic ni automatización.
 - CI de esta rama: pendiente de finalizar compilación, pruebas y artefacto APK.
+
+ 
+## Interruptor maestro Sistema activo (versión 1.15.2)
+- Rama: `chatgpt/interruptor-maestro`, creada desde `main`; no se modifica ni se integra a `main`.
+- Versión: `versionName = "1.15.2"`, `versionCode = 31`.
+- Nuevo `SystemPowerStore` con SharedPreferences: encendido por defecto, `isOn()`, `setOn(Boolean)` y hora persistida del último cambio.
+- `OfferAccessibilityService.onAccessibilityEvent` consulta el interruptor antes de inspeccionar eventos; apagado significa retorno inmediato, sin leer nodos, parsear, guardar ofertas, capturar estructura, ejecutar el ensayo ni escribir diagnósticos. El servicio de accesibilidad Android no se desactiva.
+- La pestaña Inicio muestra arriba el interruptor grande `Sistema ENCENDIDO/APAGADO`, su hora de cambio, estado `En pausa` y última oferta `En pausa` cuando está apagado. Una franja roja `EN PAUSA` aparece sobre las pestañas mientras permanece apagado.
+- No se añaden notificaciones ni servicios en primer plano, y no se implementa ningún clic automático. El método `SystemPowerStore.isOn()` queda disponible para una futura aceptación real.
+- Añadidas pruebas de la política pura de procesamiento: estado predeterminado y rechazo de eventos cuando el sistema está apagado. No se dispone de un contexto Android simulado existente para una prueba directa de SharedPreferences; el límite de procesamiento se prueba de forma pura.
+- La verificación de CI `Ensure app contains no click automation` y el resto del workflow permanecen intactos.
+- CI de esta rama: pendiente; comprobar guard, compilación, pruebas y artefacto APK en Actions antes de considerar terminada la tarea.
