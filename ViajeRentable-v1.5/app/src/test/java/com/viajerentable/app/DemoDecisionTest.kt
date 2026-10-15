@@ -81,6 +81,47 @@ class DemoDecisionTest {
     }
 
     @Test
+    fun pickupAboveMaximumRejectsEvenWhenProfitabilityPasses() {
+        val costs = DriverCosts(
+            kmPerLiter = 1_000_000.0,
+            fuelPricePerLiter = 0.0,
+            maintenancePerKm = 0.0,
+            minimumNetPerHour = 0.0,
+            minimumNetPerKm = 0.0,
+            maxPickupKm = 2.0
+        )
+        val p = offer(5000.0, pickupKm = 2.5)
+        val result = DemoDecision.evaluate(p, calculate(p, costs), costs)
+
+        assertEquals(Decision.RECHAZARIA, result.decision)
+        assertTrue(result.reasons.contains("Recogida 2.50 km > máximo 2.00 km"))
+    }
+
+    @Test
+    fun pickupAtMaximumDoesNotTriggerPickupRejection() {
+        val costs = DriverCosts(
+            kmPerLiter = 1_000_000.0,
+            fuelPricePerLiter = 0.0,
+            maintenancePerKm = 0.0,
+            minimumNetPerHour = 0.0,
+            minimumNetPerKm = 0.0,
+            maxPickupKm = 2.0
+        )
+        val p = offer(5000.0, pickupKm = 2.0)
+        val result = DemoDecision.evaluate(p, calculate(p, costs), costs)
+
+        assertEquals(Decision.ACEPTARIA, result.decision)
+    }
+
+    @Test
+    fun compactOfferRemainsWithoutDataEvenWhenPickupLimitExists() {
+        val p = ParsedOffer(3200.0)
+        val result = DemoDecision.evaluate(p, null, DriverCosts(maxPickupKm = 2.0))
+
+        assertEquals(Decision.SIN_DATOS, result.decision)
+    }
+
+    @Test
     fun multipleFailedCriteriaAreAllReported() {
         val costs = DriverCosts(kmPerLiter = 1000000.0, fuelPricePerLiter = 0.0,
             maintenancePerKm = 100.0, minimumNetPerHour = 50000.0, minimumNetPerKm = 1000.0)
