@@ -38,7 +38,7 @@ internal data class OfferTreeNode(
 
 /** Locates offer buttons without interacting with Uber controls. */
 object OfferButtonLocator {
-    private val farePattern = Regex("""CRC\\s*[0-9][0-9,.]*""", RegexOption.IGNORE_CASE)
+    private val farePattern = Regex("""CRC\s*[0-9][0-9,.]*""", RegexOption.IGNORE_CASE)
     private val buttonTypes = setOf("Aceptar", "Me interesa")
 
     fun locate(windowRoot: AccessibilityNodeInfo): OfferButtonLocationResult {
