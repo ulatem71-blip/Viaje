@@ -62,3 +62,18 @@
 - Pruebas unitarias del árbol simulado: tarjeta única con X, dos tarjetas visibles, diálogo sin tarifa, tarjeta ambigua con dos tarifas y paquete distinto.
 - No se modificó `.github/workflows/build.yml`; la verificación `Ensure app contains no click automation` queda intacta. No se usan acciones de interacción sobre Uber.
 - CI de esta rama: pendiente al iniciar esta nota; confirmar guard, compilación, pruebas y artefacto APK en GitHub Actions antes de dar por terminada la tarea.
+
+
+## Tarea: aceptación real de ofertas (versión 1.16.0)
+- Rama de trabajo: `chatgpt/aceptacion-real`. No hacer push ni merge a `main`.
+- Versión: `versionName = "1.16.0"`, `versionCode = 29`.
+- La aceptación real está apagada por defecto. El interruptor requiere confirmación explícita con el aviso de riesgo; el botón fijo `DETENER TODO` apaga la función sin confirmación.
+- `OfferClicker.kt` es el único archivo de producción que ejecuta una acción de clic de accesibilidad. No hay automatización basada en gestos. El localizador, el servicio y el modo demo solo inspeccionan/evalúan.
+- Antes de actuar se exige: interruptor activo, botón principal exacto `Aceptar`, decisión `ACEPTARIA`, ruta completa, recogida dentro del límite configurable (2,0 km por defecto), tarjeta no ambigua, tarifa coincidente, botón habilitado y visible.
+- Justo antes de la acción se lee otra vez la ventana activa y se compara tarifa y ruta. Un cambio cancela el intento. Se registra el fingerprint del intento antes de actuar para impedir reintentos de la misma oferta; pausa mínima de 5 segundos entre intentos.
+- El límite de recogida se guarda localmente en `DriverCostsStore`. No hay límite de aceptaciones por hora.
+- Apagado de seguridad: dos resultados negativos consecutivos de la acción, tres discrepancias de tarifa, reinicio del servicio o salida de Uber Driver del primer plano tras localizar una oferta. Se apaga el estado persistido, se registra el motivo y suena una alerta distinta.
+- Auditoría persistente separada del diagnóstico: fecha, tarifa, ruta, recogida, neto/km, neto/hora, bounds del botón y resultado. Incluye copiar y exportar CSV; borrar diagnósticos no borra la auditoría.
+- Añadidas pruebas unitarias de todas las condiciones previas al clic y de los umbrales de apagado; usan un árbol/datos simulados, sin interactuar con Uber.
+- CI: la comprobación permite los identificadores de acción solo dentro de `OfferClicker.kt`, prohíbe los identificadores de gestos en el código fuente y falla si hay referencias de clic fuera del archivo permitido.
+- Resultado de CI: pendiente hasta completar compilación, pruebas y subida del APK en la rama de esta tarea.
