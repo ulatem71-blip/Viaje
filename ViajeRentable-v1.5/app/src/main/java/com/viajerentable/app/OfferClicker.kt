@@ -40,6 +40,29 @@ object AcceptanceDecisionGate {
     }
 }
 
+enum class AutoAcceptanceShutdownTrigger {
+    SERVICE_RESTART,
+    UBER_LEFT_FOREGROUND,
+    CLICK_FAILURE,
+    TARIFF_DISCREPANCY
+}
+
+object AutoAcceptanceShutdownPolicy {
+    fun shouldDisable(
+        enabled: Boolean,
+        trigger: AutoAcceptanceShutdownTrigger,
+        safetyState: AutoAcceptanceSafetyState
+    ): Boolean {
+        if (!enabled) return false
+        return when (trigger) {
+            AutoAcceptanceShutdownTrigger.SERVICE_RESTART,
+            AutoAcceptanceShutdownTrigger.UBER_LEFT_FOREGROUND -> true
+            AutoAcceptanceShutdownTrigger.CLICK_FAILURE,
+            AutoAcceptanceShutdownTrigger.TARIFF_DISCREPANCY -> safetyState.mustDisable()
+        }
+    }
+}
+
 data class AutoAcceptanceSafetyState(
     val consecutiveClickFailures: Int = 0,
     val consecutiveDiscrepancies: Int = 0
