@@ -12,7 +12,8 @@ data class RecordedOffer(
     val parsed: ParsedOffer,
     val result: ProfitResult?,
     val decision: Decision? = null,
-    val reasons: List<String> = emptyList()
+    val reasons: List<String> = emptyList(),
+    val acEnabled: Boolean = false
 )
 
 /** Private on-device log of detected offers (max 200 entries, oldest dropped whole). */
@@ -28,7 +29,7 @@ object OffersStore {
     }
 
     @Synchronized
-    fun add(c: Context, p: ParsedOffer, r: ProfitResult?, demo: DemoResult? = null) {
+    fun add(c: Context, p: ParsedOffer, r: ProfitResult?, demo: DemoResult? = null, acEnabled: Boolean = false) {
         val old = load(c)
         val out = JSONArray()
         for (i in (old.length() - (MAX_ENTRIES - 1)).coerceAtLeast(0) until old.length()) {
@@ -47,6 +48,7 @@ object OffersStore {
             .put("recommended", r?.recommended ?: false)
             .put("decision", demo?.decision?.name ?: JSONObject.NULL)
             .put("reasons", JSONArray(demo?.reasons ?: emptyList<String>()))
+            .put("ac", acEnabled)
         out.put(entry)
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, out.toString()).apply()
     }
@@ -89,7 +91,7 @@ object OffersStore {
                         reasonsArray.optString(j).takeIf { it.isNotBlank() }?.let(reasons::add)
                     }
                 }
-                list.add(RecordedOffer(o.getString("date"), p, r, decision, reasons))
+                list.add(RecordedOffer(o.getString("date"), p, r, decision, reasons, o.optBoolean("ac", false)))
             } catch (_: Exception) {
                 // Skip a corrupt entry instead of losing the whole log.
             }
@@ -108,7 +110,7 @@ object OffersStore {
     }
 
     fun csv(c: Context): String {
-        val rows = mutableListOf("fecha,tarifaCRC,recogidaKm,recogidaMin,viajeKm,viajeMin,netoCRC,netoPorKm,netoPorHora,recomendado,decisionDemo,motivos")
+        val rows = mutableListOf("fecha,tarifaCRC,recogidaKm,recogidaMin,viajeKm,viajeMin,netoCRC,netoPorKm,netoPorHora,recomendado,decisionDemo,motivos,ac")
         for (x in read(c).reversed()) {
             rows.add(
                 listOf(
@@ -123,7 +125,8 @@ object OffersStore {
                     num(x.result?.netPerHour),
                     (x.result?.recommended ?: false).toString(),
                     x.decision?.name ?: "",
-                    x.reasons.joinToString("; ")
+                    x.reasons.joinToString("; "),
+                    if (x.acEnabled) "sí" else "no"
                 ).joinToString(",") { csvCell(it) }
             )
         }
