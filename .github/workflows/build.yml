@@ -25,7 +25,7 @@ jobs:
         run: |
           set -eu
           source_dir="ViajeRentable-v1.5/app/src"
-          click_method='performAction'
+          click_method='perform''Action'
           click_constant='ACTION_''CLICK'
           gesture_method='dispatch''Gesture'
           gesture_capability='canPerform''Gestures'
