@@ -17,7 +17,7 @@ class OfferAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        if (AutoAcceptanceStore.isEnabled(this)) {
+        if (AutoAcceptanceShutdownPolicy.shouldDisable(AutoAcceptanceStore.isEnabled(this), AutoAcceptanceShutdownTrigger.SERVICE_RESTART, AutoAcceptanceStore.safetyState(this))) {
             disableAutoAcceptance("servicio de accesibilidad reiniciado")
         }
         LogStore.add(this, "SERVICIO CONECTADO; captura local activada")
@@ -38,7 +38,7 @@ class OfferAccessibilityService : AccessibilityService() {
                 } finally {
                     active?.recycle()
                 }
-                if (activePackage != UBER_DRIVER_PACKAGE) {
+                if (activePackage != UBER_DRIVER_PACKAGE && AutoAcceptanceShutdownPolicy.shouldDisable(true, AutoAcceptanceShutdownTrigger.UBER_LEFT_FOREGROUND, AutoAcceptanceStore.safetyState(this))) {
                     disableAutoAcceptance("Uber Driver dejó de estar en primer plano")
                 }
             }
@@ -440,7 +440,7 @@ class OfferAccessibilityService : AccessibilityService() {
             } else {
                 LogStore.add(this, "ACEPTACIÓN FALLIDA: performAction devolvió false")
             }
-            if (safety.mustDisable()) {
+            if (AutoAcceptanceShutdownPolicy.shouldDisable(AutoAcceptanceStore.isEnabled(this), AutoAcceptanceShutdownTrigger.CLICK_FAILURE, safety)) {
                 disableAutoAcceptance("dos fallos consecutivos de performAction")
             }
         } finally {
@@ -453,7 +453,7 @@ class OfferAccessibilityService : AccessibilityService() {
         LogStore.add(this, message)
         if (AutoAcceptanceStore.isEnabled(this)) {
             val safety = AutoAcceptanceStore.recordDiscrepancy(this)
-            if (safety.mustDisable()) {
+            if (AutoAcceptanceShutdownPolicy.shouldDisable(AutoAcceptanceStore.isEnabled(this), AutoAcceptanceShutdownTrigger.TARIFF_DISCREPANCY, safety)) {
                 disableAutoAcceptance("tres discrepancias de tarifa en el ensayo")
             }
         }
