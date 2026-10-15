@@ -161,16 +161,24 @@ object AutoAcceptanceStore {
 }
 
 /** The only production class allowed to invoke AccessibilityNodeInfo click actions. */
+data class OfferClickResult(
+    val actionInvoked: Boolean,
+    val succeeded: Boolean
+)
+
 object OfferClicker {
-    fun click(target: CardTarget, freshWindowRoot: AccessibilityNodeInfo): Boolean {
-        if (target.buttonType != "Aceptar") return false
+    fun click(target: CardTarget, freshWindowRoot: AccessibilityNodeInfo): OfferClickResult {
+        if (target.buttonType != "Aceptar") return OfferClickResult(false, false)
         val button = findExactAcceptButton(freshWindowRoot, target.buttonBoundsInScreen)
-            ?: return false
+            ?: return OfferClickResult(false, false)
         return try {
             if (!button.isEnabled || !button.isVisibleToUser) {
-                false
+                OfferClickResult(false, false)
             } else {
-                button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                OfferClickResult(
+                    actionInvoked = true,
+                    succeeded = button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                )
             }
         } finally {
             button.recycle()
