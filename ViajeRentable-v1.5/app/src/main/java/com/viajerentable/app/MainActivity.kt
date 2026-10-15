@@ -635,11 +635,7 @@ class MainActivity : Activity() {
                 setTextColor(palette.text)
                 contentDescription = "Tarifa ${fmt(parsed.fare)}"
             })
-            latestOfferCard.addView(bodyText(
-                "Hora: ${latest.timestamp}\n" +
-                    "Recogida: ${parsed.pickupKm?.let { fmt(it) + " km / " + fmt(parsed.pickupMinutes ?: 0.0) + " min" } ?: "Sin datos"}\n" +
-                    "Viaje: ${parsed.tripKm?.let { fmt(it) + " km / " + fmt(parsed.tripMinutes ?: 0.0) + " min" } ?: "Sin datos"}"
-            ))
+            latestOfferCard.addView(bodyText("Hora: ${latest.timestamp}", small = true))
             latestOfferCard.addView(bodyText(
                 "Recogida: ${parsed.pickupKm?.let { fmt(it) + " km" } ?: "Sin datos"}  ·  Viaje: ${parsed.tripKm?.let { fmt(it) + " km" } ?: "Sin datos"}"
             ))
