@@ -88,3 +88,18 @@
 - Añadidas pruebas de la política pura de procesamiento: estado predeterminado y rechazo de eventos cuando el sistema está apagado. No se dispone de un contexto Android simulado existente para una prueba directa de SharedPreferences; el límite de procesamiento se prueba de forma pura.
 - La verificación de CI `Ensure app contains no click automation` y el resto del workflow permanecen intactos.
 - CI de esta rama: pendiente; comprobar guard, compilación, pruebas y artefacto APK en Actions antes de considerar terminada la tarea.
+
+ 
+## Renovación visual de la app (versión 1.15.3)
+- Rama: `chatgpt/diseno-visual`, basada en `chatgpt/interruptor-maestro` para conservar el interruptor maestro; no integrar ni hacer push a `main`.
+- Versión: `versionName = "1.15.3"`, `versionCode = 32`.
+- Renovación limitada a presentación y recursos gráficos; no se cambió el parser, servicio de accesibilidad, localizador, rentabilidad ni las decisiones. No se añadieron librerías ni pruebas de interfaz.
+- `VisualTheme.kt` centraliza la paleta clara/oscura siguiendo el modo del sistema: azul noche `#0F1724`, tarjetas `#182235`, claro `#F4F6FA`, blanco, marca turquesa `#14B8A6`, decisiones verde/rojo/gris y bordes adaptados a cada modo.
+- Tarjetas con esquinas de 16dp, contornos sin sombras, botones de 52dp, campos delineados, números clave grandes y motivos en tamaño pequeño.
+- Inicio: interruptor maestro destacado, estado de servicio compacto, última oferta con insignia de decisión, métricas de neto frente a mínimos y tres contadores en mini tarjetas.
+- Ofertas: filtros Todas/Aceptaría/Rechazaría, tarjetas con franja lateral por decisión, tarifa grande y motivos; estado vacío amable.
+- Costos: campos agrupados, tarjeta de costo por km y botón Guardar fijo al pie con confirmación breve.
+- Diagnóstico: secciones plegables cerradas por defecto y textos de diagnóstico en monoespaciada de 12sp.
+- Navegación inferior con iconos dibujados en código, estado activo turquesa y transiciones de 200 ms; sin animaciones continuas.
+- Añadido icono adaptativo propio turquesa con símbolo de moneda y ruta. Sin cambios al workflow; `Ensure app contains no click automation` queda intacto.
+- CI: pendiente de verificar guard, compilación, pruebas existentes y artefacto APK en Actions.
