@@ -640,11 +640,9 @@ class MainActivity : Activity() {
                     "Recogida: ${parsed.pickupKm?.let { fmt(it) + " km / " + fmt(parsed.pickupMinutes ?: 0.0) + " min" } ?: "Sin datos"}\n" +
                     "Viaje: ${parsed.tripKm?.let { fmt(it) + " km / " + fmt(parsed.tripMinutes ?: 0.0) + " min" } ?: "Sin datos"}"
             ))
-            latest.result?.let { result ->
-                latestOfferCard.addView(bodyText(
-                    "Neto/km: ₡${fmt(result.netPerKm)}\nNeto/hora: ₡${fmt(result.netPerHour)}\nA/C=${if (latest.acEnabled) "sí" else "no"}"
-                ))
-            }
+            latestOfferCard.addView(bodyText(
+                "Recogida: ${parsed.pickupKm?.let { fmt(it) + " km" } ?: "Sin datos"}  ·  Viaje: ${parsed.tripKm?.let { fmt(it) + " km" } ?: "Sin datos"}"
+            ))
             latestOfferCard.addView(decisionBadge(decision))
             latest.result?.let { result ->
                 val costs = DriverCostsStore.read(this)
@@ -706,6 +704,9 @@ class MainActivity : Activity() {
         pauseBanner.visibility = if (isOn) View.GONE else View.VISIBLE
         pageContent(homePage).findViewWithTag<LinearLayout>("master_power_card")?.background =
             roundedDrawable(powerColor, 18, powerColor, 2f)
+        if (::lastPowerChangeText.isInitialized) {
+            lastPowerChangeText.setTextColor(Color.WHITE)
+        }
     }
 
     private fun refreshOffers() {
@@ -998,10 +999,22 @@ class MainActivity : Activity() {
         }
         val color = if (value >= minimum) palette.accept else palette.reject
         met.addView(TextView(this).apply {
-            text = "$label  ₡${fmt(value)} / ₡${fmt(minimum)}"
-            textSize = 14f
+            text = label.uppercase(Locale.getDefault())
+            textSize = 12f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(palette.text)
+            setTextColor(palette.muted)
+        })
+        met.addView(TextView(this).apply {
+            text = "₡${fmt(value)}"
+            textSize = 32f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(color)
+            contentDescription = "$label ${fmt(value)}"
+        })
+        met.addView(TextView(this).apply {
+            text = "Mínimo: ₡${fmt(minimum)}"
+            textSize = 12f
+            setTextColor(palette.muted)
         })
         val progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
