@@ -2,6 +2,9 @@ package com.viajerentable.app
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -10,9 +13,15 @@ import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.*
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import java.io.File
 import java.util.Locale
 class MainActivity:Activity(){
+ private val acceptanceDisabledReceiver=object:BroadcastReceiver(){
+  override fun onReceive(context:Context?,intent:Intent?){
+   if(::autoAcceptanceSwitch.isInitialized){setAcceptanceSwitchChecked(false);refresh()}
+  }
+ }
  private lateinit var status:TextView;private lateinit var screen:TextView;private lateinit var treeDumpView:TextView;private lateinit var treeDumpSwitch:Switch;private lateinit var trips:TextView;private lateinit var offers:TextView;private lateinit var reason:EditText;private lateinit var logs:TextView
  private lateinit var kmL:EditText;private lateinit var fuel:EditText;private lateinit var maint:EditText;private lateinit var hour:EditText;private lateinit var km:EditText;private lateinit var demoSwitch:Switch;private lateinit var simulationInput:EditText;private lateinit var simulationOutput:TextView;private lateinit var buttonTrialCounters:TextView;private lateinit var autoAcceptanceSwitch:Switch;private lateinit var pickupMax:EditText;private lateinit var auditView:TextView;private var updatingAcceptanceSwitch=false
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val pad=(16*resources.displayMetrics.density).toInt();val c=LinearLayout(this).apply{orientation=1;setPadding(pad,pad,pad,pad)}
@@ -56,8 +65,9 @@ class MainActivity:Activity(){
   }
  }
  root.addView(autoAcceptanceSwitch,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT))
- val scroll=ScrollView(this);scroll.addView(c);root.addView(scroll,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1f));setContentView(root);loadCosts();refresh()}
+ val scroll=ScrollView(this);scroll.addView(c);root.addView(scroll,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1f));setContentView(root);ContextCompat.registerReceiver(this,acceptanceDisabledReceiver,IntentFilter(OfferAccessibilityService.ACTION_AUTO_ACCEPTANCE_DISABLED),ContextCompat.RECEIVER_NOT_EXPORTED);loadCosts();refresh()}
  override fun onResume(){super.onResume();if(::status.isInitialized)refresh()}
+ override fun onDestroy(){unregisterReceiver(acceptanceDisabledReceiver);super.onDestroy()}
  private fun appVersion():String {
   return try {
    packageManager.getPackageInfo(packageName,0).versionName ?: "?"
