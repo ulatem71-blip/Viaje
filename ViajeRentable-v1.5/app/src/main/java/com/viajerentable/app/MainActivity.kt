@@ -31,6 +31,9 @@ import java.util.Locale
 
 class MainActivity : Activity() {
     private lateinit var statusText: TextView
+    private lateinit var systemPowerSwitch: Switch
+    private lateinit var lastPowerChangeText: TextView
+    private lateinit var pauseBanner: TextView
     private lateinit var latestOfferCard: LinearLayout
     private lateinit var offersPage: LinearLayout
     private lateinit var costsPage: LinearLayout
@@ -91,6 +94,22 @@ class MainActivity : Activity() {
             setPadding(dp(20), dp(18), dp(20), dp(12))
         }
         root.addView(header)
+
+        pauseBanner = TextView(this).apply {
+            text = "EN PAUSA"
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), 0, dp(16), 0)
+            minHeight = dp(28)
+            background = roundedDrawable(Color.rgb(190, 45, 45), 0)
+            visibility = View.GONE
+        }
+        root.addView(pauseBanner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(28)
+        ))
 
         val tabScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -172,6 +191,23 @@ class MainActivity : Activity() {
 
     private fun buildHomePage() {
         val content = pageContent(homePage)
+        systemPowerSwitch = Switch(this).apply {
+            textSize = 22f
+            minHeight = dp(72)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            isChecked = SystemPowerStore.isOn(this@MainActivity)
+            text = if (isChecked) "Sistema ENCENDIDO" else "Sistema APAGADO"
+            setOnCheckedChangeListener { _, checked ->
+                SystemPowerStore.setOn(this@MainActivity, checked)
+                refreshAll()
+            }
+        }
+        content.addView(systemPowerSwitch, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+        lastPowerChangeText = bodyText("")
+        content.addView(lastPowerChangeText)
         content.addView(sectionTitle("Servicio de accesibilidad"))
         val serviceCard = card()
         statusText = TextView(this).apply {
@@ -503,6 +539,8 @@ class MainActivity : Activity() {
     }
 
     private fun refreshHome() {
+        updatePowerPresentation()
+        val systemOn = SystemPowerStore.isOn(this)
         val manager = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
         val enabled = manager.getEnabledAccessibilityServiceList(
             AccessibilityServiceInfo.FEEDBACK_ALL_MASK
@@ -515,7 +553,15 @@ class MainActivity : Activity() {
 
         latestOfferCard.removeAllViews()
         val latest = OffersStore.read(this).firstOrNull()
-        if (latest == null) {
+        if (!systemOn) {
+            latestOfferCard.addView(TextView(this).apply {
+                text = "En pausa"
+                textSize = 28f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(Color.rgb(190, 45, 45))
+                setPadding(dp(8), dp(12), dp(8), dp(12))
+            })
+        } else if (latest == null) {
             latestOfferCard.addView(bodyText("Todavía no hay ofertas registradas."))
         } else {
             val parsed = latest.parsed
@@ -553,6 +599,33 @@ class MainActivity : Activity() {
         if (::treeDumpSwitch.isInitialized) {
             treeDumpSwitch.isChecked = ScreenTreeDumpStore.isEnabled(this)
         }
+    }
+
+    private fun updatePowerPresentation() {
+        if (!::systemPowerSwitch.isInitialized || !::pauseBanner.isInitialized) {
+            return
+        }
+        val isOn = SystemPowerStore.isOn(this)
+        systemPowerSwitch.setOnCheckedChangeListener(null)
+        systemPowerSwitch.isChecked = isOn
+        systemPowerSwitch.text = if (isOn) "Sistema ENCENDIDO" else "Sistema APAGADO"
+        systemPowerSwitch.setTextColor(
+            if (isOn) Color.rgb(35, 145, 75) else Color.rgb(190, 45, 45)
+        )
+        systemPowerSwitch.setOnCheckedChangeListener { _, checked ->
+            SystemPowerStore.setOn(this, checked)
+            refreshAll()
+        }
+        val changedAt = SystemPowerStore.lastChangedAt(this)
+        val formatted = if (changedAt > 0L) {
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(changedAt))
+        } else {
+            "Sin cambios registrados"
+        }
+        if (::lastPowerChangeText.isInitialized) {
+            lastPowerChangeText.text = "Último cambio: $formatted"
+        }
+        pauseBanner.visibility = if (isOn) View.GONE else View.VISIBLE
     }
 
     private fun refreshOffers() {
