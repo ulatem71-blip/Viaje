@@ -61,7 +61,7 @@ class OfferDeduplicator(
 
         fun fingerprint(offer: ParsedOffer): String {
             if (!offer.hasRouteDetails) {
-                return "compact:${String.format(java.util.Locale.US, "%.3f", offer.fare)}"
+                return "compact:${offer.fare.toBits()}"
             }
             return listOf(
                 offer.fare,
@@ -69,7 +69,7 @@ class OfferDeduplicator(
                 offer.pickupMinutes!!,
                 offer.tripKm!!,
                 offer.tripMinutes!!
-            ).joinToString("|") { String.format(java.util.Locale.US, "%.3f", it) }
+            ).joinToString("|") { it.toBits().toString() }
         }
     }
 }
