@@ -17,10 +17,12 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AlphaAnimation
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
@@ -157,7 +159,8 @@ class MainActivity : Activity() {
         }
         wrapper.addView(scroll, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+            0,
+            1f
         ))
         return wrapper
     }
@@ -169,7 +172,9 @@ class MainActivity : Activity() {
 
     private fun buildHomePage() {
         val content = pageContent(homePage)
-        val powerCard = card()
+        val powerCard = card().apply {
+            tag = "master_power_card"
+        }
         systemPowerSwitch = Switch(this).apply {
             textSize = 20f
             minHeight = dp(72)
@@ -338,7 +343,7 @@ class MainActivity : Activity() {
         simulatorCard.addView(actionButton("Usar ejemplo") {
             simulationInput.setText("UberX | CRC1,404.33 | A 7 min (1.4 km) | Viaje: 10 min (2.7 km) | Aceptar")
         })
-        simulatorCard.addView(actionButton("Simular") { simulateOffer() })
+        simulatorCard.addView(actionButton("Simular", primary = true) { simulateOffer() })
         simulationOutput = bodyText("")
         simulatorCard.addView(simulationOutput)
         content.addView(simulatorCard)
@@ -699,6 +704,8 @@ class MainActivity : Activity() {
             lastPowerChangeText.text = "Último cambio: $formatted"
         }
         pauseBanner.visibility = if (isOn) View.GONE else View.VISIBLE
+        pageContent(homePage).findViewWithTag<LinearLayout>("master_power_card")?.background =
+            roundedDrawable(powerColor, 18, powerColor, 2f)
     }
 
     private fun refreshOffers() {
