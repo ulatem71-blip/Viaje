@@ -118,13 +118,13 @@ class OfferAccessibilityService : AccessibilityService() {
                     } else {
                         null
                     }
-                    OffersStore.add(this, parsed, result, demo)
+                    OffersStore.add(this, parsed, result, demo, costs.acEnabled)
                     LogStore.add(
                         this,
                         "OFERTA DETALLADA [$timestamp]; tarifaCRC=${fmt(parsed.fare)}; " +
                             "totalKm=${fmt(result.totalKm)}; totalMin=${fmt(result.totalMinutes)}; " +
                             "netoCRC=${fmt(result.net)}; netoPorKmCRC=${fmt(result.netPerKm)}; " +
-                            "netoPorHoraCRC=${fmt(result.netPerHour)}; recomendado=${result.recommended}"
+                            "netoPorHoraCRC=${fmt(result.netPerHour)}; A/C=${if (costs.acEnabled) "sí" else "no"}; recomendado=${result.recommended}"
                     )
                     if (demo != null) {
                         val wording = when (demo.decision) {
