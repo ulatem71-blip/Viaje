@@ -62,3 +62,17 @@
 - Pruebas unitarias del árbol simulado: tarjeta única con X, dos tarjetas visibles, diálogo sin tarifa, tarjeta ambigua con dos tarifas y paquete distinto.
 - No se modificó `.github/workflows/build.yml`; la verificación `Ensure app contains no click automation` queda intacta. No se usan acciones de interacción sobre Uber.
 - CI de esta rama: pendiente al iniciar esta nota; confirmar guard, compilación, pruebas y artefacto APK en GitHub Actions antes de dar por terminada la tarea.
+
+
+## Interfaz gráfica, A/C y distancia máxima de recogida (versión 1.15.1)
+- Rama: `chatgpt/interfaz-ac`, creada desde `main`; no se integra ni se hace push a `main`.
+- Versión Android: `versionName = "1.15.1"`, `versionCode = 30`. Se usa 30 porque la rama de aceptación real ya reserva el código 29.
+- `MainActivity` fue reescrita con Kotlin multilínea y cuatro pestañas: **Inicio** (estado del servicio, última oferta, decisiones simuladas, captura del árbol y contadores diarios); **Ofertas** (tarjetas de oferta, decisión, motivos y exportación CSV); **Costos** (vehículo, mínimos, distancia máxima y A/C); **Diagnóstico** (simulador, registro en vivo, viajes aceptados manuales, volcado, contadores y acciones de copiar/borrar).
+- La interfaz usa vistas nativas, colores adaptados al tema del sistema, tarjetas redondeadas, texto corporal de 16sp o mayor y botones de al menos 48dp.
+- Añadidos a `DriverCostsStore`: A/C apagado por defecto, consumo extra 10 % (0–50 %) y recogida máxima 2,0 km (0,1–20 km).
+- Con A/C activo, solo el costo de combustible por km se multiplica por `1 + porcentaje/100`; el mantenimiento no cambia.
+- `DemoDecision` rechaza una oferta detallada si la recogida excede el máximo, con motivo `Recogida X km > máximo Y km`; las ofertas compactas siguen como `SIN_DATOS`.
+- Cada oferta registra el estado A/C, y el CSV añade la columna `ac` al final sin cambiar el orden de las columnas anteriores.
+- Pruebas unitarias nuevas cubren el ajuste de combustible por A/C, mantenimiento sin cambios, A/C apagado y límites de recogida incluyendo oferta compacta.
+- El workflow de CI `Ensure app contains no click automation` se deja intacto; esta tarea no introduce acciones de clic ni automatización.
+- CI de esta rama: pendiente de finalizar compilación, pruebas y artefacto APK.
