@@ -72,7 +72,7 @@ class MainActivity:Activity(){
  screen.text=AcceptedTripStore.latestScreen(this).ifBlank{"Todavía no hay texto capturado. Abre Uber Driver y deja los datos visibles."};trips.text=AcceptedTripStore.read(this)
  if(::treeDumpView.isInitialized){treeDumpView.text=ScreenTreeDumpStore.lastDump(this).ifBlank{"Todavía no hay un volcado. Activa la opción y deja visible una oferta con Aceptar o Me interesa."}}
  offers.text=OffersStore.read(this).joinToString("\n\n"){x->val p=x.parsed;val r=x.result;val d=x.decision?.let{"\nDemo: $it; motivos: ${x.reasons.joinToString("; ")}"}?:"";"${x.timestamp} | ${if(p.hasRouteDetails)"OFERTA DETALLADA" else "OFERTA COMPACTA"}\nTarifa ₡${fmt(p.fare)}; recogida ${p.pickupKm?.let{fmt(it)+" km / "+fmt(p.pickupMinutes!!)+" min"}?:"pendiente"}; viaje ${p.tripKm?.let{fmt(it)+" km / "+fmt(p.tripMinutes!!)+" min"}?:"pendiente"}\n"+(r?.let{"Neto ₡${fmt(it.net)}; ₡/km ${fmt(it.netPerKm)}; ₡/hora ${fmt(it.netPerHour)}; recomendado=${it.recommended}"}?:"Rentabilidad pendiente")+d}.ifBlank{"Todavía no hay ofertas registradas."}
- val trial=OfferButtonTrialStore.read(this);if(::buttonTrialCounters.isInitialized){buttonTrialCounters.text="ACEPTARIA con botón localizado: ${trial.acceptedWithButton}\\nACEPTARIA sin botón: ${trial.acceptedWithoutButton}\\nAmbiguas: ${trial.ambiguous}\\nDiscrepancias: ${trial.discrepancies}"}
+ val trial=OfferButtonTrialStore.read(this);if(::buttonTrialCounters.isInitialized){buttonTrialCounters.text="ACEPTARIA con botón localizado: ${trial.acceptedWithButton}\nACEPTARIA sin botón: ${trial.acceptedWithoutButton}\nAmbiguas: ${trial.ambiguous}\nDiscrepancias: ${trial.discrepancies}"}
  logs.text=LogStore.read(this)}
  private fun fmt(v:Double)=String.format(Locale.US,"%.2f",v)
 }
