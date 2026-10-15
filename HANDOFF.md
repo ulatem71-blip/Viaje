@@ -38,3 +38,15 @@
 - 2026-10-11: CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38178274478; assembleDebug, test, guard anti-clics y subida del APK completados.
 - 2026-10-12: parseAll separa tarjetas por botón; el servicio procesa cada tarjeta independientemente; añadido diagnóstico VARIAS TARJETAS y tests. Versión 1.14.2/versionCode 26.
 - 2026-10-12: CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38302631120 (run #107); assembleDebug, test, guard anti-clics y APK pasaron.
+
+
+## Tarea: volcado de estructura de pantalla (versión 1.14.3)
+- Rama de trabajo: `chatgpt/volcado-arbol`; no hacer push ni merge a `main`.
+- Versión actualizada a `versionName = "1.14.3"` y `versionCode = 27`.
+- Añadido el switch `Capturar estructura de pantalla`, apagado por defecto y guardado en preferencias locales.
+- Con la captura habilitada, solo se vuelca el árbol de una ventana del paquete `com.ubercab.driver` si el texto accesible contiene `Aceptar` o `Me interesa`, con intervalo mínimo de 3 segundos.
+- Cada línea del volcado contiene sangría por profundidad, `className`, `viewIdResourceName`, `text`, `contentDescription`, `isClickable`, `isEnabled`, `isVisibleToUser` y `boundsInScreen`.
+- Solo se guarda el último volcado en SharedPreferences y se limita a 20000 caracteres. El botón `Copiar último volcado` copia el texto al portapapeles.
+- El volcado y los textos permanecen localmente en el teléfono; no se agregó carga de datos.
+- No se añadió interacción con controles de Uber ni permisos de gestos. La verificación existente de CI `Ensure app contains no click automation` permanece sin cambios.
+- CI de esta rama: pendiente al momento de actualizar esta nota. Confirmar guard, compilación, pruebas y artefacto en GitHub Actions antes de dar por terminada la tarea.

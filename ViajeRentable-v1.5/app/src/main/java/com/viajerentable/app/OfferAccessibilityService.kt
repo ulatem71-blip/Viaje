@@ -3,6 +3,7 @@ package com.viajerentable.app
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.graphics.Rect
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -10,6 +11,7 @@ import java.util.Locale
 /** Reads text exposed by Uber Driver accessibility, including visible interactive windows. */
 class OfferAccessibilityService : AccessibilityService() {
     private var lastDiagnosticAt = 0L
+    private var lastTreeDumpAt = 0L
     private val offerDeduplicator = OfferDeduplicator()
 
     override fun onServiceConnected() {
@@ -71,6 +73,21 @@ class OfferAccessibilityService : AccessibilityService() {
                 .distinct()
             val combined = normalized.joinToString(" | ")
             AcceptedTripStore.updateLatestScreen(this, combined)
+
+            val hasOfferAction = combined.contains("Aceptar", ignoreCase = true) ||
+                combined.contains("Me interesa", ignoreCase = true)
+            val treeDumpTime = System.currentTimeMillis()
+            if (ScreenTreeDumpStore.isEnabled(this) &&
+                hasOfferAction &&
+                treeDumpTime - lastTreeDumpAt >= TREE_DUMP_INTERVAL_MS
+            ) {
+                val treeDump = captureWindowTree(windowsSnapshot)
+                if (treeDump.isNotBlank()) {
+                    ScreenTreeDumpStore.saveLastDump(this, treeDump)
+                    lastTreeDumpAt = treeDumpTime
+                    LogStore.add(this, "VOLCADO DE ÁRBOL guardado localmente (" + treeDump.length + " caracteres)")
+                }
+            }
 
             val parsedOffers = OfferParser.parseAll(combined)
             val now = System.currentTimeMillis()
@@ -157,6 +174,71 @@ class OfferAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun captureWindowTree(windowList: List<android.view.accessibility.AccessibilityWindowInfo>): String {
+        val output = StringBuilder()
+        for (window in windowList) {
+            val root = try {
+                window.root
+            } catch (_: Exception) {
+                null
+            } ?: continue
+
+            try {
+                if (root.packageName?.toString() == UBER_DRIVER_PACKAGE) {
+                    appendNodeTree(root, output, 0)
+                    if (output.isNotEmpty()) {
+                        break
+                    }
+                }
+            } finally {
+                root.recycle()
+            }
+        }
+        return output.toString().take(ScreenTreeDumpStore.MAX_DUMP_CHARS)
+    }
+
+    private fun appendNodeTree(
+        node: AccessibilityNodeInfo,
+        output: StringBuilder,
+        depth: Int
+    ) {
+        if (depth > MAX_TREE_DEPTH || output.length >= ScreenTreeDumpStore.MAX_DUMP_CHARS) {
+            return
+        }
+
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        val indent = "  ".repeat(depth)
+        val line = "$indent className=${cleanField(node.className?.toString())}" +
+            " viewIdResourceName=${cleanField(node.viewIdResourceName)}" +
+            " text=${cleanField(node.text?.toString())}" +
+            " contentDescription=${cleanField(node.contentDescription?.toString())}" +
+            " isClickable=${node.isClickable}" +
+            " isEnabled=${node.isEnabled}" +
+            " isVisibleToUser=${node.isVisibleToUser}" +
+            " boundsInScreen=$bounds\n"
+        output.append(line.take(ScreenTreeDumpStore.MAX_DUMP_CHARS - output.length))
+
+        for (index in 0 until node.childCount) {
+            if (output.length >= ScreenTreeDumpStore.MAX_DUMP_CHARS) {
+                break
+            }
+            val child = node.getChild(index) ?: continue
+            try {
+                appendNodeTree(child, output, depth + 1)
+            } finally {
+                child.recycle()
+            }
+        }
+    }
+
+    private fun cleanField(value: String?): String {
+        return value.orEmpty()
+            .replace("\\", "\\\\")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace(" ", "␠")
+    }
     private fun fmt(value: Double): String {
         return String.format(Locale.US, "%.2f", value)
     }
@@ -202,6 +284,7 @@ class OfferAccessibilityService : AccessibilityService() {
         private const val MAX_TREE_DEPTH = 18
         private const val MAX_NODES = 1000
         private const val DIAGNOSTIC_INTERVAL_MS = 30000L
+        private const val TREE_DUMP_INTERVAL_MS = 3000L
         private const val MULTI_CARD_TEXT_LIMIT = 700
     }
 }
