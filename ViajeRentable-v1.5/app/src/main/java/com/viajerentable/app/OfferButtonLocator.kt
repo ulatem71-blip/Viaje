@@ -72,7 +72,7 @@ object OfferButtonLocator {
             if (node.className.substringAfterLast('.').equals("Button", true) &&
                 buttonType != null && buttonType in buttonTypes
             ) {
-                val buttonKey = "${buttonType}:${node.boundsInScreen.flattenToString()}"
+                val buttonKey = "${buttonType}:${node.boundsInScreen.toShortString()}"
                 if (seenButtons.add(buttonKey)) {
                     locateForButton(node, path, buttonType, cards, ambiguous)
                 }
@@ -144,7 +144,7 @@ object OfferButtonLocator {
         )
     }
 
-    private fun findXButton(card: OfferTreeNode, cardBounds: Rect): OfferTreeNode? {
+    private fun findXButton(card: OfferTreeNode, cardBounds: ScreenBounds): OfferTreeNode? {
         var found: OfferTreeNode? = null
         visit(card, emptyList()) { node, _ ->
             if (found != null || node === card) {
