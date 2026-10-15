@@ -24,11 +24,11 @@ data class ProfitResult(
     val totalMinutes: Double,
     val fuelCost: Double,
     val maintenanceCost: Double,
-    val fuelCostPerKm: Double = 0.0,
     val net: Double,
     val netPerKm: Double,
     val netPerHour: Double,
-    val recommended: Boolean
+    val recommended: Boolean,
+    val fuelCostPerKm: Double = 0.0
 )
 
 object Profitability {
@@ -44,7 +44,16 @@ object Profitability {
         val net = offer.fare - fuel - maintenance
         val perKm = if (km > 0) net / km else 0.0
         val perHour = if (minutes > 0) net / (minutes / 60.0) else 0.0
-        return ProfitResult(km, minutes, fuel, maintenance, fuelCostPerKm, net, perKm, perHour,
-            net >= 0 && perKm >= costs.minimumNetPerKm && perHour >= costs.minimumNetPerHour)
+        return ProfitResult(
+            totalKm = km,
+            totalMinutes = minutes,
+            fuelCost = fuel,
+            maintenanceCost = maintenance,
+            net = net,
+            netPerKm = perKm,
+            netPerHour = perHour,
+            recommended = net >= 0 && perKm >= costs.minimumNetPerKm && perHour >= costs.minimumNetPerHour,
+            fuelCostPerKm = fuelCostPerKm
+        )
     }
 }
