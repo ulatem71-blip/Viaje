@@ -242,6 +242,14 @@ class OfferAccessibilityService : AccessibilityService() {
                 for (target in result.cards) {
                     val parsed = OfferParser.parse(target.cardText)
                     if (parsed == null) {
+                        if (!trialLogDeduplicator.shouldRecord(
+                                fmt(target.fare),
+                                target.buttonType,
+                                Decision.SIN_DATOS.name
+                            )
+                        ) {
+                            continue
+                        }
                         LogStore.add(
                             this,
                             "ENSAYO: ACEPTARIA PERO BOTÓN NO LOCALIZADO (tarjeta no parseable)"
