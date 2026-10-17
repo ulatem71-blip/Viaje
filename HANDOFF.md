@@ -103,3 +103,16 @@
 - Navegación inferior con iconos dibujados en código, estado activo turquesa y transiciones de 200 ms; sin animaciones continuas.
 - Añadido icono adaptativo propio turquesa con símbolo de moneda y ruta. Sin cambios al workflow; `Ensure app contains no click automation` queda intacto.
 - CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38678023367: `Ensure app contains no click automation`, compilación del APK, pruebas unitarias existentes y subida del artefacto completadas correctamente.
+
+## Diagnóstico y robustez del ensayo del botón (versión 1.15.6)
+- Rama: `chatgpt/ensayo-robusto`, creada desde `main`; no integrar ni hacer push a `main`.
+- Versión Android: `versionName = "1.15.6"`, `versionCode = 35`.
+- `captureWindowTree` recorre todas las ventanas cuyo paquete es `com.ubercab.driver`; cada árbol empieza con `VENTANA n: nodos=X, bounds=...`. El volcado total conserva el límite de 20000 caracteres.
+- `TrialLogDeduplicator` limita líneas `ENSAYO:` repetidas por tarifa, tipo de botón y decisión a una cada 15 segundos; usa reloj inyectable y tiene pruebas unitarias.
+- Si el ensayo da `ACEPTARIA` sin poder localizar la tarjeta, se registra `ENSAYO: AMBIGUA detalle` con montos detectados, clase y bounds del ancestro, cantidades de botones `Aceptar` y `Me interesa`, y texto/clase/bounds de cada nodo de tarifa.
+- `AmbiguousCaseDumpStore` guarda localmente el volcado completo de la ventana del caso ambiguo, con máximo de 20000 caracteres. Diagnóstico > Contadores del ensayo incluye `Copiar volcado del último caso ambiguo`.
+- El localizador normaliza las tarifas y cuenta una sola vez ocurrencias repetidas del mismo monto; si hay montos distintos, conserva el estado ambiguo. Hay pruebas para ambos casos.
+- No se modificaron el parser ni las reglas de rentabilidad/decisión. No se agregaron clics ni bibliotecas.
+- El workflow `.github/workflows/build.yml` no se modificó; la verificación `Ensure app contains no click automation` permanece intacta.
+- CI: pendiente de confirmación para esta rama; no integrar hasta que pasen el guard, compilación, pruebas y artefacto APK.
+

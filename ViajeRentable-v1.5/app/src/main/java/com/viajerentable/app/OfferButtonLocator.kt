@@ -28,7 +28,12 @@ data class AmbiguousCard(
     val buttonType: String,
     val reason: String,
     val cardText: String,
-    val boundsInScreen: ScreenBounds
+    val boundsInScreen: ScreenBounds,
+    val ancestorClassName: String = "",
+    val fareValues: List<String> = emptyList(),
+    val acceptButtonCount: Int = 0,
+    val interestedButtonCount: Int = 0,
+    val fareNodeDetails: List<String> = emptyList()
 )
 
 data class OfferButtonLocationResult(
@@ -91,19 +96,28 @@ object OfferButtonLocator {
     ) {
         var selected: OfferTreeNode? = null
         var selectedText = ""
-        var selectedFareMatches = 0
+        var selectedFareValues: List<String> = emptyList()
+        var selectedFareNodeDetails: List<String> = emptyList()
         var selectedAcceptCount = 0
+        var selectedInterestedCount = 0
 
         for (index in path.lastIndex - 1 downTo 0) {
             val ancestor = path[index]
             val text = subtreeText(ancestor)
-            val fares = farePattern.findAll(text).count()
+            val fareNodes = collectFareNodes(ancestor)
+            val fareValues = fareNodes.map { it.second }.distinct()
             val hasTrip = text.contains("Viaje:", ignoreCase = true)
             if (hasTrip) {
                 selected = ancestor
                 selectedText = text
-                selectedFareMatches = fares
+                selectedFareValues = fareValues
+                selectedFareNodeDetails = fareNodes.map { (node, fare) ->
+                    fare + " className=" + node.className +
+                        " bounds=" + node.boundsInScreen.toShortString() +
+                        " text=" + node.text.orEmpty()
+                }
                 selectedAcceptCount = countButtons(ancestor, "Aceptar")
+                selectedInterestedCount = countButtons(ancestor, "Me interesa")
                 break
             }
         }
@@ -113,18 +127,32 @@ object OfferButtonLocator {
             return
         }
 
-        if (selectedFareMatches != 1 || selectedAcceptCount > 1) {
-            val reason = if (selectedFareMatches != 1) {
-                "tarifas=$selectedFareMatches"
+        if (selectedFareValues.size != 1 || selectedAcceptCount > 1) {
+            val reason = if (selectedFareValues.size != 1) {
+                "tarifas=" + selectedFareValues.size
             } else {
                 "más de un botón Aceptar"
             }
-            ambiguous.add(AmbiguousCard(buttonType, reason, selectedText, selected.boundsInScreen))
+            ambiguous.add(
+                AmbiguousCard(
+                    buttonType = buttonType,
+                    reason = reason,
+                    cardText = selectedText,
+                    boundsInScreen = selected.boundsInScreen,
+                    ancestorClassName = selected.className,
+                    fareValues = selectedFareValues,
+                    acceptButtonCount = selectedAcceptCount,
+                    interestedButtonCount = selectedInterestedCount,
+                    fareNodeDetails = selectedFareNodeDetails
+                )
+            )
             return
         }
 
         val parsed = OfferParser.parseAll(appendButton(selectedText, buttonType))
-        val parsedForCard = parsed.filter { it.fare > 0.0 }
+        val parsedForCard = parsed
+            .filter { it.fare > 0.0 }
+            .distinctBy { String.format(java.util.Locale.US, "%.2f", it.fare) }
         if (parsedForCard.size != 1 || !parsedForCard.single().hasRouteDetails) {
             ambiguous.add(AmbiguousCard(buttonType, "tarjeta no parseable de forma única", selectedText, selected.boundsInScreen))
             return
@@ -161,6 +189,24 @@ object OfferButtonLocator {
             }
         }
         return found
+    }
+
+    private fun collectFareNodes(root: OfferTreeNode): List<Pair<OfferTreeNode, String>> {
+        val fares = mutableListOf<Pair<OfferTreeNode, String>>()
+        visit(root, emptyList()) { node, _ ->
+            val text = node.text.orEmpty()
+            farePattern.findAll(text).forEach { match ->
+                val normalized = match.value
+                    .replace(Regex("(?i)CRC\\s*"), "")
+                    .replace(",", "")
+                    .replace(" ", "")
+                val amount = normalized.toDoubleOrNull()
+                if (amount != null) {
+                    fares.add(node to String.format(java.util.Locale.US, "%.2f", amount))
+                }
+            }
+        }
+        return fares
     }
 
     private fun countButtons(root: OfferTreeNode, label: String): Int {
