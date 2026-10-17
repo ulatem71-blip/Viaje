@@ -150,7 +150,9 @@ object OfferButtonLocator {
         }
 
         val parsed = OfferParser.parseAll(appendButton(selectedText, buttonType))
-        val parsedForCard = parsed.filter { it.fare > 0.0 }
+        val parsedForCard = parsed
+            .filter { it.fare > 0.0 }
+            .distinctBy { String.format(java.util.Locale.US, "%.2f", it.fare) }
         if (parsedForCard.size != 1 || !parsedForCard.single().hasRouteDetails) {
             ambiguous.add(AmbiguousCard(buttonType, "tarjeta no parseable de forma única", selectedText, selected.boundsInScreen))
             return
