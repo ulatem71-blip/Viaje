@@ -408,6 +408,9 @@ class MainActivity : Activity() {
         val trialCard = card()
         trialCountersText = bodyText("")
         trialCard.addView(trialCountersText)
+        trialCard.addView(actionButton("Copiar volcado del último caso ambiguo") {
+            copyToClipboard("Volcado del caso ambiguo", AmbiguousCaseDumpStore.lastDump(this))
+        })
         trialCard.addView(actionButton("Reiniciar contadores") {
             OfferButtonTrialStore.reset(this)
             refreshDiagnostics()
