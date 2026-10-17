@@ -368,7 +368,7 @@ class OfferAccessibilityService : AccessibilityService() {
                     root.getBoundsInScreen(bounds)
                     val nodeCount = countTreeNodes(root)
                     output.append(
-                        "VENTANA $uberWindowNumber: nodos=$nodeCount, bounds=$bounds\\n"
+                        "VENTANA $uberWindowNumber: nodos=$nodeCount, bounds=$bounds\n"
                     )
                     appendNodeTree(root, output, 0)
                 }
@@ -383,7 +383,7 @@ class OfferAccessibilityService : AccessibilityService() {
         val output = StringBuilder()
         val bounds = Rect()
         root.getBoundsInScreen(bounds)
-        output.append("VENTANA AMBIGUA: nodos=${countTreeNodes(root)}, bounds=$bounds\\n")
+        output.append("VENTANA AMBIGUA: nodos=${countTreeNodes(root)}, bounds=$bounds\n")
         appendNodeTree(root, output, 0)
         return output.toString().take(AmbiguousCaseDumpStore.MAX_DUMP_CHARS)
     }
