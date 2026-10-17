@@ -13,6 +13,7 @@ class OfferAccessibilityService : AccessibilityService() {
     private var lastDiagnosticAt = 0L
     private var lastTreeDumpAt = 0L
     private val offerDeduplicator = OfferDeduplicator()
+    private val trialLogDeduplicator = TrialLogDeduplicator()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -204,14 +205,33 @@ class OfferAccessibilityService : AccessibilityService() {
                         ambiguous.cardText + " | " + ambiguous.buttonType
                     ).firstOrNull()
                     val decision = parsed?.let { evaluateTrialDecision(it) }
+                    val decisionName = decision?.decision?.name ?: Decision.SIN_DATOS.name
+                    val fareKey = parsed?.fare?.let { fmt(it) }
+                        ?: ambiguous.fareValues.firstOrNull()
+                        ?: "sin tarifa"
+                    if (!trialLogDeduplicator.shouldRecord(
+                            fareKey,
+                            ambiguous.buttonType,
+                            decisionName
+                        )
+                    ) {
+                        continue
+                    }
                     if (decision?.decision == Decision.ACEPTARIA) {
                         OfferButtonTrialStore.incrementAcceptedWithoutButton(this)
                         LogStore.add(
                             this,
                             "ENSAYO: ACEPTARIA PERO BOTÓN NO LOCALIZADO (${ambiguous.reason})"
                         )
+                        val detail = "ENSAYO: AMBIGUA detalle tarifaEncontrada=" +
+                            ambiguous.fareValues.joinToString(",") +
+                            "; className=${ambiguous.ancestorClassName}; bounds=${ambiguous.boundsInScreen.toShortString()}" +
+                            "; botonesAceptar=${ambiguous.acceptButtonCount}" +
+                            "; botonesMeInteresa=${ambiguous.interestedButtonCount}" +
+                            "; textosTarifa=[${ambiguous.fareNodeDetails.joinToString(" || ")}]"
+                        LogStore.add(this, detail)
+                        AmbiguousCaseDumpStore.saveLastDump(this, captureSingleWindowTree(root))
                     } else {
-                        val decisionName = decision?.decision?.name ?: Decision.SIN_DATOS.name
                         LogStore.add(
                             this,
                             "ENSAYO: NO PULSARÍA ($decisionName) tipo=${ambiguous.buttonType} X=no"
@@ -231,6 +251,14 @@ class OfferAccessibilityService : AccessibilityService() {
                     }
 
                     val decision = evaluateTrialDecision(parsed)
+                    if (!trialLogDeduplicator.shouldRecord(
+                            fmt(target.fare),
+                            target.buttonType,
+                            decision.decision.name
+                        )
+                    ) {
+                        continue
+                    }
                     val storedOffers = OffersStore.read(this)
                     val routeMatch = storedOffers.firstOrNull {
                         sameRoute(it.parsed, parsed)
@@ -318,9 +346,15 @@ class OfferAccessibilityService : AccessibilityService() {
         return DemoDecision.evaluate(offer, result, costs)
     }
 
-    private fun captureWindowTree(windowList: List<android.view.accessibility.AccessibilityWindowInfo>): String {
+    private fun captureWindowTree(
+        windowList: List<android.view.accessibility.AccessibilityWindowInfo>
+    ): String {
         val output = StringBuilder()
+        var uberWindowNumber = 0
         for (window in windowList) {
+            if (output.length >= ScreenTreeDumpStore.MAX_DUMP_CHARS) {
+                break
+            }
             val root = try {
                 window.root
             } catch (_: Exception) {
@@ -329,16 +363,42 @@ class OfferAccessibilityService : AccessibilityService() {
 
             try {
                 if (root.packageName?.toString() == UBER_DRIVER_PACKAGE) {
+                    uberWindowNumber += 1
+                    val bounds = Rect()
+                    root.getBoundsInScreen(bounds)
+                    val nodeCount = countTreeNodes(root)
+                    output.append(
+                        "VENTANA $uberWindowNumber: nodos=$nodeCount, bounds=$bounds\\n"
+                    )
                     appendNodeTree(root, output, 0)
-                    if (output.isNotEmpty()) {
-                        break
-                    }
                 }
             } finally {
                 root.recycle()
             }
         }
         return output.toString().take(ScreenTreeDumpStore.MAX_DUMP_CHARS)
+    }
+
+    private fun captureSingleWindowTree(root: AccessibilityNodeInfo): String {
+        val output = StringBuilder()
+        val bounds = Rect()
+        root.getBoundsInScreen(bounds)
+        output.append("VENTANA AMBIGUA: nodos=${countTreeNodes(root)}, bounds=$bounds\\n")
+        appendNodeTree(root, output, 0)
+        return output.toString().take(AmbiguousCaseDumpStore.MAX_DUMP_CHARS)
+    }
+
+    private fun countTreeNodes(root: AccessibilityNodeInfo): Int {
+        var count = 1
+        for (index in 0 until root.childCount) {
+            val child = root.getChild(index) ?: continue
+            try {
+                count += countTreeNodes(child)
+            } finally {
+                child.recycle()
+            }
+        }
+        return count
     }
 
     private fun appendNodeTree(
