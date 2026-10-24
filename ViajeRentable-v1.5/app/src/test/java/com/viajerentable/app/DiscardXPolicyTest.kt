@@ -31,6 +31,7 @@ class DiscardXPolicyTest {
         assertFalse(DiscardXRecognition.isValid(bounds, candidate().copy(enabled = false)))
         assertFalse(DiscardXRecognition.isValid(bounds, candidate().copy(visible = false)))
         assertFalse(DiscardXRecognition.isValid(bounds, candidate().copy(text = "Cerrar")))
+        assertFalse(DiscardXRecognition.isValid(bounds, candidate().copy(contentDescription = "Cerrar")))
     }
 
     @Test
