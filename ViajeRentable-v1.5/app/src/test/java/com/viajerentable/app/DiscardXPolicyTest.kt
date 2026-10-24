@@ -14,7 +14,7 @@ class DiscardXPolicyTest {
     @Test
     fun recognizesOneXButRejectsTwoCandidates() {
         assertTrue(DiscardXRecognition.selectSingle(bounds, listOf(candidate())) != null)
-        val second = candidate(ScreenBounds(470, 250, 600, 380))
+        val second = candidate(ScreenBounds(450, 210, 580, 340))
         assertTrue(DiscardXRecognition.selectSingle(bounds, listOf(candidate(), second)) == null)
     }
 
