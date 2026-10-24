@@ -21,7 +21,8 @@ data class CardTarget(
     val buttonBoundsInScreen: ScreenBounds,
     val xBoundsInScreen: ScreenBounds?,
     val isEnabled: Boolean,
-    val isVisibleToUser: Boolean
+    val isVisibleToUser: Boolean,
+    val cardBoundsInScreen: ScreenBounds = ScreenBounds(0, 0, 0, 0)
 )
 
 data class AmbiguousCard(
@@ -168,27 +169,37 @@ object OfferButtonLocator {
                 buttonBoundsInScreen = button.boundsInScreen,
                 xBoundsInScreen = xButton?.boundsInScreen,
                 isEnabled = button.isEnabled,
-                isVisibleToUser = button.isVisibleToUser
+                isVisibleToUser = button.isVisibleToUser,
+                cardBoundsInScreen = selected.boundsInScreen
             )
         )
     }
 
     private fun findXButton(card: OfferTreeNode, cardBounds: ScreenBounds): OfferTreeNode? {
-        var found: OfferTreeNode? = null
+        val candidates = mutableListOf<OfferTreeNode>()
         visit(card, emptyList()) { node, _ ->
-            if (found != null || node === card) {
+            if (node === card) {
                 return@visit
             }
             val isButton = node.className.substringAfterLast('.').equals("Button", true)
             val hasNoLabel = node.text.isNullOrBlank() && node.contentDescription.isNullOrBlank()
             val bounds = node.boundsInScreen
-            val rightNear = kotlin.math.abs(cardBounds.right - bounds.right) < X_RIGHT_TOLERANCE_PX
-            val topNear = kotlin.math.abs(cardBounds.top - bounds.top) < X_TOP_TOLERANCE_PX
-            if (isButton && hasNoLabel && node.isClickable && rightNear && topNear) {
-                found = node
+            val width = bounds.right - bounds.left
+            val height = bounds.bottom - bounds.top
+            val inCard = bounds.left >= cardBounds.left &&
+                bounds.top >= cardBounds.top &&
+                bounds.right <= cardBounds.right &&
+                bounds.bottom <= cardBounds.bottom
+            val rightNear = cardBounds.right - bounds.right in 0 until X_RIGHT_TOLERANCE_PX
+            val topNear = bounds.top - cardBounds.top in 0 until X_TOP_TOLERANCE_PX
+            if (isButton && hasNoLabel && node.isClickable && node.isEnabled &&
+                node.isVisibleToUser && width in X_MIN_SIZE_PX..X_MAX_SIZE_PX &&
+                height in X_MIN_SIZE_PX..X_MAX_SIZE_PX && inCard && rightNear && topNear
+            ) {
+                candidates.add(node)
             }
         }
-        return found
+        return candidates.singleOrNull()
     }
 
     private fun collectFareNodes(root: OfferTreeNode): List<Pair<OfferTreeNode, String>> {
@@ -275,4 +286,6 @@ object OfferButtonLocator {
     private const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
     private const val X_RIGHT_TOLERANCE_PX = 80
     private const val X_TOP_TOLERANCE_PX = 120
+    private const val X_MIN_SIZE_PX = 100
+    private const val X_MAX_SIZE_PX = 170
 }
