@@ -70,6 +70,7 @@ class MainActivity : Activity() {
     private lateinit var discardAssignedSwitch: Switch
     private lateinit var discardLimitInput: EditText
     private lateinit var auditText: TextView
+    private lateinit var discardAuditText: TextView
     private var updatingAutoAcceptance = false
 
     private val pageViews = mutableListOf<LinearLayout>()
@@ -550,7 +551,7 @@ class MainActivity : Activity() {
 
         content.addView(sectionTitle("Auditoría persistente de descartes X"))
         val discardAuditCard = card()
-        val discardAuditText = bodyText(LogStore.readDiscardAudit(this)).apply {
+        discardAuditText = bodyText(LogStore.readDiscardAudit(this)).apply {
             typeface = Typeface.MONOSPACE
             textSize = 12f
         }
@@ -938,6 +939,9 @@ class MainActivity : Activity() {
         if (::auditText.isInitialized) {
             auditText.text = LogStore.readAudit(this)
         }
+        if (::discardAuditText.isInitialized) {
+            discardAuditText.text = LogStore.readDiscardAudit(this)
+        }
         if (::autoAcceptanceSwitch.isInitialized) {
             setAutoAcceptanceSwitchChecked(AutoAcceptanceStore.isEnabled(this))
         }
@@ -978,6 +982,10 @@ class MainActivity : Activity() {
                 } else {
                     DiscardXStore.setAssignedEnabled(this, true)
                 }
+                setDiscardSwitchesChecked(
+                    DiscardXStore.suggestionsEnabled(this),
+                    DiscardXStore.assignedEnabled(this)
+                )
                 LogStore.add(this, "DESCARTE AUTOMÁTICO ACTIVADO: " + if (suggestions) "Me interesa" else "Aceptar")
                 refreshAll()
             }
