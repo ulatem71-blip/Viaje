@@ -7,6 +7,7 @@ object DiscardXStore {
     private const val SUGGESTIONS_ENABLED = "suggestions_enabled"
     private const val ASSIGNED_ENABLED = "assigned_enabled"
     private const val LAST_DISCARD_AT = "last_discard_at"
+    private const val LAST_DISCARD_SCREEN = "last_discard_screen"
     private const val CONSECUTIVE_WITHOUT_ACCEPTANCE = "consecutive_without_acceptance"
     private const val CONSECUTIVE_LIMIT = "consecutive_limit"
     private const val LAST_SEEN_VERSION = "last_seen_version"
@@ -51,8 +52,20 @@ object DiscardXStore {
         return last == 0L || nowMs - last >= MIN_DISCARD_INTERVAL_MS
     }
 
-    fun markDiscardAttempt(context: Context, nowMs: Long = System.currentTimeMillis()) {
-        preferences(context).edit().putLong(LAST_DISCARD_AT, nowMs).apply()
+    fun markDiscardAttempt(
+        context: Context,
+        nowMs: Long = System.currentTimeMillis(),
+        screenSignature: String = ""
+    ) {
+        preferences(context).edit()
+            .putLong(LAST_DISCARD_AT, nowMs)
+            .putString(LAST_DISCARD_SCREEN, screenSignature)
+            .apply()
+    }
+
+    fun mayProcessScreen(context: Context, screenSignature: String): Boolean {
+        val previous = preferences(context).getString(LAST_DISCARD_SCREEN, null)
+        return previous == null || previous != screenSignature
     }
 
     fun wasAttempted(context: Context, fingerprint: String, nowMs: Long = System.currentTimeMillis()): Boolean {
