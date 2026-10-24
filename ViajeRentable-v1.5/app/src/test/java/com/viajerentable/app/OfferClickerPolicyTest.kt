@@ -137,6 +137,32 @@ class OfferClickerPolicyTest {
     }
 
     @Test
+    fun masterSwitchAndStopAllAlwaysRequestAutomaticAcceptanceShutdown() {
+        val state = AutoAcceptanceSafetyState()
+        assertTrue(
+            AutoAcceptanceShutdownPolicy.shouldDisable(
+                true,
+                AutoAcceptanceShutdownTrigger.MASTER_SWITCH_OFF,
+                state
+            )
+        )
+        assertTrue(
+            AutoAcceptanceShutdownPolicy.shouldDisable(
+                true,
+                AutoAcceptanceShutdownTrigger.STOP_ALL,
+                state
+            )
+        )
+        assertFalse(
+            AutoAcceptanceShutdownPolicy.shouldDisable(
+                false,
+                AutoAcceptanceShutdownTrigger.STOP_ALL,
+                state
+            )
+        )
+    }
+
+    @Test
     fun clickAndDiscrepancyTriggersOnlyShutdownAtTheirThresholds() {
         val clickState = AutoAcceptanceSafetyState().afterClick(false)
         assertFalse(
