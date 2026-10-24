@@ -79,6 +79,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AutoAcceptanceStore.enforceOffForVersionChange(this, appVersion())
         buildInterface()
         loadCosts()
         showPage(0)
