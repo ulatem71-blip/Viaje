@@ -79,6 +79,38 @@ class OfferButtonLocatorTest {
     }
 
     @Test
+    fun repeatedOccurrencesOfSameFareCountAsOneFare() {
+        val original = card(1803.33, 0, "Aceptar")
+        val scroll = original.children[1]
+        val repeatedFare = text("CRC1,803.33")
+        val updatedScroll = scroll.copy(children = scroll.children + repeatedFare)
+        val repeatedCard = original.copy(
+            children = original.children.toMutableList().also { it[1] = updatedScroll }
+        )
+
+        val result = OfferButtonLocator.locate(repeatedCard)
+
+        assertEquals(1, result.cards.size)
+        assertTrue(result.ambiguous.isEmpty())
+        assertEquals(1803.33, result.cards.single().fare, 0.01)
+    }
+
+    @Test
+    fun differentFareAmountsRemainAmbiguous() {
+        val original = card(1803.33, 0, "Aceptar")
+        val children = original.children.toMutableList()
+        children.add(
+            2,
+            OfferTreeNode(className = "android.widget.TextView", text = "CRC2,000.00")
+        )
+        val result = OfferButtonLocator.locate(original.copy(children = children))
+
+        assertTrue(result.cards.isEmpty())
+        assertEquals(1, result.ambiguous.size)
+        assertEquals(listOf("1803.33", "2000.00"), result.ambiguous.single().fareValues)
+    }
+
+    @Test
     fun ignoresWindowFromAnotherPackage() {
         val root = card(1803.33, 0, "Aceptar").copy(packageName = "com.other.app")
         val result = OfferButtonLocator.locate(root)
