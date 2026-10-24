@@ -428,9 +428,31 @@ class OfferAccessibilityService : AccessibilityService() {
                         continue
                     }
 
-                    AutoAcceptanceStore.markAttempted(this, fingerprint, now)
-                    AutoAcceptanceStore.markClickAttempt(this, now)
-                    val clickResult = OfferClicker.click(target, root)
+                    val freshRoot = try {
+                        window.root
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (freshRoot == null) {
+                        LogStore.add(this, "ACEPTACIÓN CANCELADA: no se pudo releer la ventana")
+                        continue
+                    }
+                    val clickResult = try {
+                        val freshTarget = revalidateTargetForClick(freshRoot, target, parsed)
+                        if (freshTarget == null) {
+                            null
+                        } else {
+                            AutoAcceptanceStore.markAttempted(this, fingerprint, now)
+                            AutoAcceptanceStore.markClickAttempt(this, now)
+                            OfferClicker.click(freshTarget, freshRoot)
+                        }
+                    } finally {
+                        freshRoot.recycle()
+                    }
+                    if (clickResult == null) {
+                        LogStore.add(this, "ACEPTACIÓN CANCELADA: la tarjeta cambió antes del clic")
+                        continue
+                    }
                     val safetyState = AutoAcceptanceStore.recordClickResult(this, clickResult.succeeded)
                     val route = "recogida=${fmt(parsed.pickupKm!!)}km/${fmt(parsed.pickupMinutes!!)}min; viaje=${fmt(parsed.tripKm!!)}km/${fmt(parsed.tripMinutes!!)}min"
                     val auditLine = listOf(
@@ -469,6 +491,43 @@ class OfferAccessibilityService : AccessibilityService() {
                 root.recycle()
             }
         }
+    }
+
+    /** Re-reads the window right before clicking and requires the same card, fare, route and gate. */
+    private fun revalidateTargetForClick(
+        freshRoot: AccessibilityNodeInfo,
+        original: CardTarget,
+        originalParsed: ParsedOffer
+    ): CardTarget? {
+        if (freshRoot.packageName?.toString() != UBER_DRIVER_PACKAGE) {
+            return null
+        }
+        val fresh = OfferButtonLocator.locate(freshRoot)
+        val freshTarget = fresh.cards.filter {
+            it.buttonType == "Aceptar" &&
+                it.buttonBoundsInScreen == original.buttonBoundsInScreen
+        }.singleOrNull() ?: return null
+        val freshParsed = OfferParser.parse(freshTarget.cardText) ?: return null
+        if (!sameRoute(freshParsed, originalParsed)) {
+            return null
+        }
+        if (kotlin.math.abs(freshParsed.fare - originalParsed.fare) >= 0.01) {
+            return null
+        }
+        val costs = DriverCostsStore.read(this)
+        val decision = evaluateTrialDecision(freshParsed).decision
+        val gate = AcceptanceDecisionGate.evaluate(
+            AcceptanceGateInput(
+                enabled = SystemPowerStore.isOn(this) && AutoAcceptanceStore.isEnabled(this),
+                target = freshTarget,
+                decision = decision,
+                parsedOffer = freshParsed,
+                maxPickupKm = costs.maxPickupKm,
+                ambiguous = false,
+                fareMatches = kotlin.math.abs(freshTarget.fare - freshParsed.fare) < 0.01
+            )
+        )
+        return if (gate.allowed) freshTarget else null
     }
 
     private fun recordAcceptanceDiscrepancy(reason: String) {
