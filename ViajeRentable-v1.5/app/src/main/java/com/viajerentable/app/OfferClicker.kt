@@ -212,6 +212,67 @@ object OfferClicker {
         }
     }
 
+    fun clickX(target: CardTarget, freshWindowRoot: AccessibilityNodeInfo): OfferClickResult {
+        val xBounds = target.xBoundsInScreen ?: return OfferClickResult(false, false)
+        val button = findExactXButton(
+            freshWindowRoot,
+            target.cardBoundsInScreen,
+            xBounds
+        ) ?: return OfferClickResult(false, false)
+        return try {
+            if (!button.isEnabled || !button.isVisibleToUser || !button.isClickable) {
+                OfferClickResult(false, false)
+            } else {
+                val succeeded = try {
+                    button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                } catch (_: Exception) {
+                    false
+                }
+                OfferClickResult(actionInvoked = true, succeeded = succeeded)
+            }
+        } finally {
+            button.recycle()
+        }
+    }
+
+    private fun findExactXButton(
+        root: AccessibilityNodeInfo,
+        cardBounds: ScreenBounds,
+        targetBounds: ScreenBounds
+    ): AccessibilityNodeInfo? {
+        val rect = android.graphics.Rect()
+        root.getBoundsInScreen(rect)
+        val currentBounds = ScreenBounds(rect.left, rect.top, rect.right, rect.bottom)
+        val isButton = root.className?.toString()?.substringAfterLast('.') == "Button"
+        val candidate = XCandidate(
+            className = root.className?.toString().orEmpty(),
+            text = root.text?.toString(),
+            contentDescription = root.contentDescription?.toString(),
+            clickable = root.isClickable,
+            enabled = root.isEnabled,
+            visible = root.isVisibleToUser,
+            bounds = currentBounds
+        )
+        if (isButton && currentBounds == targetBounds &&
+            DiscardXRecognition.isValid(cardBounds, candidate)
+        ) {
+            return AccessibilityNodeInfo.obtain(root)
+        }
+
+        for (index in 0 until root.childCount) {
+            val child = root.getChild(index) ?: continue
+            val match = try {
+                findExactXButton(child, cardBounds, targetBounds)
+            } finally {
+                child.recycle()
+            }
+            if (match != null) {
+                return match
+            }
+        }
+        return null
+    }
+
     fun fingerprint(offer: ParsedOffer): String {
         return OfferDeduplicator.fingerprint(offer)
     }
