@@ -617,6 +617,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         continue
                     }
 
+                    var clickedXBounds = target.xBoundsInScreen
                     val freshRoot = try {
                         window.root
                     } catch (_: Exception) {
@@ -643,6 +644,7 @@ class OfferAccessibilityService : AccessibilityService() {
                                 recordDiscardDiscrepancy("la tarjeta o la X cambió antes del clic")
                                 OfferClickResult(false, false)
                             } else {
+                                clickedXBounds = freshTarget.xBoundsInScreen
                                 val freshParsed = OfferParser.parse(freshTarget.cardText)
                                 val gate = DiscardDecisionGate.evaluate(
                                     DiscardGateInput(
@@ -681,7 +683,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         route,
                         decision.reasons.joinToString("; "),
                         target.buttonType,
-                        target.xBoundsInScreen?.toShortString() ?: "NO_LOCALIZADA",
+                        clickedXBounds?.toShortString() ?: "NO_LOCALIZADA",
                         if (clickResult.succeeded) "CLICK_X_OK" else if (clickResult.actionInvoked) "CLICK_X_FALLO" else "X_NO_PULSADA"
                     ).joinToString("|")
                     LogStore.addDiscardAudit(this, audit)
