@@ -507,6 +507,9 @@ class OfferAccessibilityService : AccessibilityService() {
                     continue
                 }
                 val located = OfferButtonLocator.locate(root)
+                if (discardEnabled && located.cards.isNotEmpty()) {
+                    hadOfferLocatedWhileEnabled = true
+                }
                 val targets = located.cards.sortedBy { it.cardBoundsInScreen.top }
                 val screenSignature = targets.joinToString("||") {
                     it.buttonType + "|" + fmt(it.fare) + "|" + it.cardBoundsInScreen.toShortString() + "|" + it.cardText
