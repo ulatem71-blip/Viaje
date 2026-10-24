@@ -176,30 +176,25 @@ object OfferButtonLocator {
     }
 
     private fun findXButton(card: OfferTreeNode, cardBounds: ScreenBounds): OfferTreeNode? {
-        val candidates = mutableListOf<OfferTreeNode>()
+        val candidates = mutableListOf<Pair<OfferTreeNode, XCandidate>>()
         visit(card, emptyList()) { node, _ ->
             if (node === card) {
                 return@visit
             }
-            val isButton = node.className.substringAfterLast('.').equals("Button", true)
-            val hasNoLabel = node.text.isNullOrBlank() && node.contentDescription.isNullOrBlank()
-            val bounds = node.boundsInScreen
-            val width = bounds.right - bounds.left
-            val height = bounds.bottom - bounds.top
-            val inCard = bounds.left >= cardBounds.left &&
-                bounds.top >= cardBounds.top &&
-                bounds.right <= cardBounds.right &&
-                bounds.bottom <= cardBounds.bottom
-            val rightNear = cardBounds.right - bounds.right in 0 until X_RIGHT_TOLERANCE_PX
-            val topNear = bounds.top - cardBounds.top in 0 until X_TOP_TOLERANCE_PX
-            if (isButton && hasNoLabel && node.isClickable && node.isEnabled &&
-                node.isVisibleToUser && width in X_MIN_SIZE_PX..X_MAX_SIZE_PX &&
-                height in X_MIN_SIZE_PX..X_MAX_SIZE_PX && inCard && rightNear && topNear
-            ) {
-                candidates.add(node)
-            }
+            val candidate = XCandidate(
+                className = node.className,
+                text = node.text,
+                contentDescription = node.contentDescription,
+                clickable = node.isClickable,
+                enabled = node.isEnabled,
+                visible = node.isVisibleToUser,
+                bounds = node.boundsInScreen
+            )
+            candidates.add(node to candidate)
         }
-        return candidates.singleOrNull()
+        val selected = DiscardXRecognition.selectSingle(cardBounds, candidates.map { it.second })
+            ?: return null
+        return candidates.firstOrNull { it.second == selected }?.first
     }
 
     private fun collectFareNodes(root: OfferTreeNode): List<Pair<OfferTreeNode, String>> {
@@ -284,8 +279,4 @@ object OfferButtonLocator {
     }
 
     private const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
-    private const val X_RIGHT_TOLERANCE_PX = 80
-    private const val X_TOP_TOLERANCE_PX = 120
-    private const val X_MIN_SIZE_PX = 100
-    private const val X_MAX_SIZE_PX = 170
 }
