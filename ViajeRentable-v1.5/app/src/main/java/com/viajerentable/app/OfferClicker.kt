@@ -108,14 +108,34 @@ object AutoAcceptanceStore {
         prefs(context).edit().putLong(LAST_CLICK_AT, nowMs).apply()
     }
 
-    fun wasAttempted(context: Context, fingerprint: String): Boolean {
-        return acceptedFingerprints(context).contains(fingerprint)
+    fun wasAttempted(
+        context: Context,
+        fingerprint: String,
+        nowMs: Long = System.currentTimeMillis()
+    ): Boolean {
+        val ledger = ExpiringFingerprintLedger.fromStored(
+            acceptedFingerprints(context),
+            nowMs
+        )
+        persistFingerprints(context, ledger.storedEntries())
+        return ledger.contains(fingerprint, nowMs)
     }
 
-    fun markAttempted(context: Context, fingerprint: String) {
-        val all = acceptedFingerprints(context).toMutableSet()
-        all.add(fingerprint)
-        prefs(context).edit().putStringSet(ACCEPTED_FINGERPRINTS, all).apply()
+    fun markAttempted(
+        context: Context,
+        fingerprint: String,
+        nowMs: Long = System.currentTimeMillis()
+    ) {
+        val ledger = ExpiringFingerprintLedger.fromStored(
+            acceptedFingerprints(context),
+            nowMs
+        )
+        ledger.add(fingerprint, nowMs)
+        persistFingerprints(context, ledger.storedEntries())
+    }
+
+    private fun persistFingerprints(context: Context, entries: Set<String>) {
+        prefs(context).edit().putStringSet(ACCEPTED_FINGERPRINTS, entries).apply()
     }
 
     fun safetyState(context: Context): AutoAcceptanceSafetyState {
