@@ -18,27 +18,22 @@ object DriverCostsStore {
             fuelPricePerLiter = value("fuelPricePerLiter", 720.0),
             maintenancePerKm = value("maintenancePerKm", 25.0),
             minimumNetPerHour = value("minimumNetPerHour", 2500.0),
-            minimumNetPerKm = value("minimumNetPerKm", 250.0)
+            minimumNetPerKm = value("minimumNetPerKm", 250.0),
+            acEnabled = preferences.getBoolean("acEnabled", false),
+            acExtraPercent = value("acExtraPercent", 10.0).coerceIn(0.0, 50.0),
+            maxPickupKm = value("maxPickupKm", 2.0).coerceIn(0.1, 20.0)
         )
     }
 
-    fun maxPickupKm(context: Context): Double {
-        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val value = preferences.getString("maxPickupKm", "2.0")?.toDoubleOrNull() ?: 2.0
-        return value.takeIf { it >= 0.0 && it.isFinite() } ?: 2.0
-    }
-
-    fun saveMaxPickupKm(context: Context, value: Double) {
-        if (value < 0.0 || !value.isFinite()) {
-            return
-        }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString("maxPickupKm", value.toString())
-            .apply()
-    }
-
     fun save(context: Context, costs: DriverCosts) {
+        require(costs.kmPerLiter > 0.0)
+        require(costs.fuelPricePerLiter >= 0.0)
+        require(costs.maintenancePerKm >= 0.0)
+        require(costs.minimumNetPerHour >= 0.0)
+        require(costs.minimumNetPerKm >= 0.0)
+        require(costs.acExtraPercent in 0.0..50.0)
+        require(costs.maxPickupKm in 0.1..20.0)
+
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString("kmPerLiter", costs.kmPerLiter.toString())
@@ -46,6 +41,9 @@ object DriverCostsStore {
             .putString("maintenancePerKm", costs.maintenancePerKm.toString())
             .putString("minimumNetPerHour", costs.minimumNetPerHour.toString())
             .putString("minimumNetPerKm", costs.minimumNetPerKm.toString())
+            .putBoolean("acEnabled", costs.acEnabled)
+            .putString("acExtraPercent", costs.acExtraPercent.toString())
+            .putString("maxPickupKm", costs.maxPickupKm.toString())
             .apply()
     }
 }
