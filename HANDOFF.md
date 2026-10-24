@@ -64,16 +64,66 @@
 - CI de esta rama: pendiente al iniciar esta nota; confirmar guard, compilación, pruebas y artefacto APK en GitHub Actions antes de dar por terminada la tarea.
 
 
-## Tarea: aceptación real de ofertas (versión 1.16.0)
-- Rama de trabajo: `chatgpt/aceptacion-real`. No hacer push ni merge a `main`.
-- Versión: `versionName = "1.16.0"`, `versionCode = 29`.
-- La aceptación real está apagada por defecto. El interruptor requiere confirmación explícita con el aviso de riesgo; el botón fijo `DETENER TODO` apaga la función sin confirmación.
-- `OfferClicker.kt` es el único archivo de producción que ejecuta una acción de clic de accesibilidad. No hay automatización basada en gestos. El localizador, el servicio y el modo demo solo inspeccionan/evalúan.
-- Antes de actuar se exige: interruptor activo, botón principal exacto `Aceptar`, decisión `ACEPTARIA`, ruta completa, recogida dentro del límite configurable (2,0 km por defecto), tarjeta no ambigua, tarifa coincidente, botón habilitado y visible.
-- Justo antes de la acción se lee otra vez la ventana activa y se compara tarifa y ruta. Un cambio cancela el intento. Se registra el fingerprint del intento antes de actuar para impedir reintentos de la misma oferta; pausa mínima de 5 segundos entre intentos.
-- El límite de recogida se guarda localmente en `DriverCostsStore`. No hay límite de aceptaciones por hora.
-- Apagado de seguridad: dos resultados negativos consecutivos de la acción, tres discrepancias de tarifa, reinicio del servicio o salida de Uber Driver del primer plano tras localizar una oferta. Se apaga el estado persistido, se registra el motivo y suena una alerta distinta.
-- Auditoría persistente separada del diagnóstico: fecha, tarifa, ruta, recogida, neto/km, neto/hora, bounds del botón y resultado. Incluye copiar y exportar CSV; borrar diagnósticos no borra la auditoría.
-- Añadidas pruebas unitarias de todas las condiciones previas al clic y de los umbrales de apagado; usan un árbol/datos simulados, sin interactuar con Uber.
-- CI: la comprobación permite los identificadores de acción solo dentro de `OfferClicker.kt`, prohíbe los identificadores de gestos en el código fuente y falla si hay referencias de clic fuera del archivo permitido.
-- Resultado de CI: pendiente hasta completar compilación, pruebas y subida del APK en la rama de esta tarea.
+## Interfaz gráfica, A/C y distancia máxima de recogida (versión 1.15.1)
+- Rama: `chatgpt/interfaz-ac`, creada desde `main`; no se integra ni se hace push a `main`.
+- Versión Android: `versionName = "1.15.1"`, `versionCode = 30`. Se usa 30 porque la rama de aceptación real ya reserva el código 29.
+- `MainActivity` fue reescrita con Kotlin multilínea y cuatro pestañas: **Inicio** (estado del servicio, última oferta, decisiones simuladas, captura del árbol y contadores diarios); **Ofertas** (tarjetas de oferta, decisión, motivos y exportación CSV); **Costos** (vehículo, mínimos, distancia máxima y A/C); **Diagnóstico** (simulador, registro en vivo, viajes aceptados manuales, volcado, contadores y acciones de copiar/borrar).
+- La interfaz usa vistas nativas, colores adaptados al tema del sistema, tarjetas redondeadas, texto corporal de 16sp o mayor y botones de al menos 48dp.
+- Añadidos a `DriverCostsStore`: A/C apagado por defecto, consumo extra 10 % (0–50 %) y recogida máxima 2,0 km (0,1–20 km).
+- Con A/C activo, solo el costo de combustible por km se multiplica por `1 + porcentaje/100`; el mantenimiento no cambia.
+- `DemoDecision` rechaza una oferta detallada si la recogida excede el máximo, con motivo `Recogida X km > máximo Y km`; las ofertas compactas siguen como `SIN_DATOS`.
+- Cada oferta registra el estado A/C, y el CSV añade la columna `ac` al final sin cambiar el orden de las columnas anteriores.
+- Pruebas unitarias nuevas cubren el ajuste de combustible por A/C, mantenimiento sin cambios, A/C apagado y límites de recogida incluyendo oferta compacta.
+- El workflow de CI `Ensure app contains no click automation` se deja intacto; esta tarea no introduce acciones de clic ni automatización.
+- CI de esta rama: pendiente de finalizar compilación, pruebas y artefacto APK.
+
+ 
+## Interruptor maestro Sistema activo (versión 1.15.2)
+- Rama: `chatgpt/interruptor-maestro`, creada desde `main`; no se modifica ni se integra a `main`.
+- Versión: `versionName = "1.15.2"`, `versionCode = 31`.
+- Nuevo `SystemPowerStore` con SharedPreferences: encendido por defecto, `isOn()`, `setOn(Boolean)` y hora persistida del último cambio.
+- `OfferAccessibilityService.onAccessibilityEvent` consulta el interruptor antes de inspeccionar eventos; apagado significa retorno inmediato, sin leer nodos, parsear, guardar ofertas, capturar estructura, ejecutar el ensayo ni escribir diagnósticos. El servicio de accesibilidad Android no se desactiva.
+- La pestaña Inicio muestra arriba el interruptor grande `Sistema ENCENDIDO/APAGADO`, su hora de cambio, estado `En pausa` y última oferta `En pausa` cuando está apagado. Una franja roja `EN PAUSA` aparece sobre las pestañas mientras permanece apagado.
+- No se añaden notificaciones ni servicios en primer plano, y no se implementa ningún clic automático. El método `SystemPowerStore.isOn()` queda disponible para una futura aceptación real.
+- Añadidas pruebas de la política pura de procesamiento: estado predeterminado y rechazo de eventos cuando el sistema está apagado. No se dispone de un contexto Android simulado existente para una prueba directa de SharedPreferences; el límite de procesamiento se prueba de forma pura.
+- La verificación de CI `Ensure app contains no click automation` y el resto del workflow permanecen intactos.
+- CI de esta rama: pendiente; comprobar guard, compilación, pruebas y artefacto APK en Actions antes de considerar terminada la tarea.
+
+ 
+## Renovación visual de la app (versión 1.15.3)
+- Rama: `chatgpt/diseno-visual`, basada en `chatgpt/interruptor-maestro` para conservar el interruptor maestro; no integrar ni hacer push a `main`.
+- Versión: `versionName = "1.15.3"`, `versionCode = 32`.
+- Renovación limitada a presentación y recursos gráficos; no se cambió el parser, servicio de accesibilidad, localizador, rentabilidad ni las decisiones. No se añadieron librerías ni pruebas de interfaz.
+- `VisualTheme.kt` centraliza la paleta clara/oscura siguiendo el modo del sistema: azul noche `#0F1724`, tarjetas `#182235`, claro `#F4F6FA`, blanco, marca turquesa `#14B8A6`, decisiones verde/rojo/gris y bordes adaptados a cada modo.
+- Tarjetas con esquinas de 16dp, contornos sin sombras, botones de 52dp, campos delineados, números clave grandes y motivos en tamaño pequeño.
+- Inicio: interruptor maestro destacado, estado de servicio compacto, última oferta con insignia de decisión, métricas de neto frente a mínimos y tres contadores en mini tarjetas.
+- Ofertas: filtros Todas/Aceptaría/Rechazaría, tarjetas con franja lateral por decisión, tarifa grande y motivos; estado vacío amable.
+- Costos: campos agrupados, tarjeta de costo por km y botón Guardar fijo al pie con confirmación breve.
+- Diagnóstico: secciones plegables cerradas por defecto y textos de diagnóstico en monoespaciada de 12sp.
+- Navegación inferior con iconos dibujados en código, estado activo turquesa y transiciones de 200 ms; sin animaciones continuas.
+- Añadido icono adaptativo propio turquesa con símbolo de moneda y ruta. Sin cambios al workflow; `Ensure app contains no click automation` queda intacto.
+- CI verde en https://github.com/ulatem71-blip/Viaje/actions/runs/38678023367: `Ensure app contains no click automation`, compilación del APK, pruebas unitarias existentes y subida del artefacto completadas correctamente.
+
+## Diagnóstico y robustez del ensayo del botón (versión 1.15.6)
+- Rama: `chatgpt/ensayo-robusto`, creada desde `main`; no integrar ni hacer push a `main`.
+- Versión Android: `versionName = "1.15.6"`, `versionCode = 35`.
+- `captureWindowTree` recorre todas las ventanas cuyo paquete es `com.ubercab.driver`; cada árbol empieza con `VENTANA n: nodos=X, bounds=...`. El volcado total conserva el límite de 20000 caracteres.
+- `TrialLogDeduplicator` limita líneas `ENSAYO:` repetidas por tarifa, tipo de botón y decisión a una cada 15 segundos; usa reloj inyectable y tiene pruebas unitarias.
+- Si el ensayo da `ACEPTARIA` sin poder localizar la tarjeta, se registra `ENSAYO: AMBIGUA detalle` con montos detectados, clase y bounds del ancestro, cantidades de botones `Aceptar` y `Me interesa`, y texto/clase/bounds de cada nodo de tarifa.
+- `AmbiguousCaseDumpStore` guarda localmente el volcado completo de la ventana del caso ambiguo, con máximo de 20000 caracteres. Diagnóstico > Contadores del ensayo incluye `Copiar volcado del último caso ambiguo`.
+- El localizador normaliza las tarifas y cuenta una sola vez ocurrencias repetidas del mismo monto; si hay montos distintos, conserva el estado ambiguo. Hay pruebas para ambos casos.
+- No se modificaron el parser ni las reglas de rentabilidad/decisión. No se agregaron clics ni bibliotecas.
+- El workflow `.github/workflows/build.yml` no se modificó; la verificación `Ensure app contains no click automation` permanece intacta.
+- CI: pendiente de confirmación para esta rama; no integrar hasta que pasen el guard, compilación, pruebas y artefacto APK.
+
+## Etapa 3 — aceptación real (1.16.0)
+- Rama de trabajo: `chatgpt/aceptacion-real`; base sincronizada con `main` 1.15.6; no integrar en `main` sin autorización.
+- Versión: `versionName = "1.16.0"`, `versionCode = 36`.
+- Conserva interfaz de cuatro pestañas, franja `EN PAUSA`, tema con contornos, A/C configurable, recogida máxima configurable y diagnóstico robusto del ensayo.
+- `OfferClicker.kt` es el único archivo de producción autorizado para usar `performAction` y `ACTION_CLICK`; se prohíben `dispatchGesture` y `canPerformGestures` en todo el código.
+- Las huellas de aceptación se guardan con timestamp, caducan a los 10 minutos, se limpian al consultar y se limitan a 50 entradas. La misma oferta se bloquea a los 3 minutos y se permite de nuevo a los 11 minutos.
+- La aceptación automática permanece apagada por defecto y se apaga al cambiar de versión, al apagar el interruptor maestro o al pulsar `DETENER TODO`. El diálogo de riesgo es obligatorio antes de activarla.
+- La auditoría persistente registra fecha, tarifa, ruta, recogida, neto/km, neto/hora, bounds del botón y resultado del intento; se puede copiar o exportar CSV desde Diagnóstico.
+- Pruebas unitarias cubren la puerta de decisión, umbrales de apagado seguro y expiración de huellas. No requieren interactuar con Uber.
+- CI: pendiente de ejecutar y confirmar en esta rama; no integrar hasta que pasen el guard anti-clics, compilación, pruebas y generación del APK.
+
