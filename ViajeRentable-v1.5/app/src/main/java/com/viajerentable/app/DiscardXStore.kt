@@ -10,6 +10,8 @@ object DiscardXStore {
     private const val CONSECUTIVE_WITHOUT_ACCEPTANCE = "consecutive_without_acceptance"
     private const val CONSECUTIVE_LIMIT = "consecutive_limit"
     private const val LAST_SEEN_VERSION = "last_seen_version"
+    private const val ATTEMPTED_FINGERPRINTS = "attempted_fingerprints"
+    private const val TRIAL_FINGERPRINTS = "trial_fingerprints"
     const val MIN_DISCARD_INTERVAL_MS = 2000L
     const val DEFAULT_CONSECUTIVE_LIMIT = 15
 
@@ -51,6 +53,40 @@ object DiscardXStore {
 
     fun markDiscardAttempt(context: Context, nowMs: Long = System.currentTimeMillis()) {
         preferences(context).edit().putLong(LAST_DISCARD_AT, nowMs).apply()
+    }
+
+    fun wasAttempted(context: Context, fingerprint: String, nowMs: Long = System.currentTimeMillis()): Boolean {
+        val prefs = preferences(context)
+        val ledger = ExpiringFingerprintLedger.fromStored(
+            prefs.getStringSet(ATTEMPTED_FINGERPRINTS, emptySet())?.toSet() ?: emptySet(),
+            nowMs
+        )
+        prefs.edit().putStringSet(ATTEMPTED_FINGERPRINTS, ledger.storedEntries()).apply()
+        return ledger.contains(fingerprint, nowMs)
+    }
+
+    fun markAttempted(context: Context, fingerprint: String, nowMs: Long = System.currentTimeMillis()) {
+        val prefs = preferences(context)
+        val ledger = ExpiringFingerprintLedger.fromStored(
+            prefs.getStringSet(ATTEMPTED_FINGERPRINTS, emptySet())?.toSet() ?: emptySet(),
+            nowMs
+        )
+        ledger.add(fingerprint, nowMs)
+        prefs.edit().putStringSet(ATTEMPTED_FINGERPRINTS, ledger.storedEntries()).apply()
+    }
+
+    fun shouldLogTrial(context: Context, fingerprint: String, nowMs: Long = System.currentTimeMillis()): Boolean {
+        val prefs = preferences(context)
+        val ledger = ExpiringFingerprintLedger.fromStored(
+            prefs.getStringSet(TRIAL_FINGERPRINTS, emptySet())?.toSet() ?: emptySet(),
+            nowMs
+        )
+        val exists = ledger.contains(fingerprint, nowMs)
+        if (!exists) {
+            ledger.add(fingerprint, nowMs)
+        }
+        prefs.edit().putStringSet(TRIAL_FINGERPRINTS, ledger.storedEntries()).apply()
+        return !exists
     }
 
     fun consecutiveWithoutAcceptance(context: Context): Int {
