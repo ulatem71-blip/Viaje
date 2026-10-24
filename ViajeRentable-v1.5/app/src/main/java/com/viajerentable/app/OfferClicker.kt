@@ -99,6 +99,17 @@ object AutoAcceptanceStore {
         prefs(context).edit().putBoolean(ENABLED, enabled).apply()
     }
 
+    fun enforceOffForVersionChange(context: Context, currentVersion: String) {
+        val preferences = prefs(context)
+        val previousVersion = preferences.getString("last_seen_version", null)
+        if (previousVersion != currentVersion) {
+            preferences.edit()
+                .putBoolean(ENABLED, false)
+                .putString("last_seen_version", currentVersion)
+                .apply()
+        }
+    }
+
     fun mayClickNow(context: Context, nowMs: Long = System.currentTimeMillis()): Boolean {
         val last = prefs(context).getLong(LAST_CLICK_AT, 0L)
         return last == 0L || nowMs - last >= MIN_CLICK_INTERVAL_MS
