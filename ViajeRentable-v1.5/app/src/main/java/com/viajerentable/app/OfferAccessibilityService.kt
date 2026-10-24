@@ -449,6 +449,7 @@ class OfferAccessibilityService : AccessibilityService() {
                     )
                     if (clickResult.succeeded) {
                         OfferClicker.playClickSound()
+                        DiscardXStore.recordAcceptance(this)
                     } else {
                         OfferClicker.playSafetyWarning()
                     }
@@ -507,6 +508,9 @@ class OfferAccessibilityService : AccessibilityService() {
                 }
                 val located = OfferButtonLocator.locate(root)
                 val targets = located.cards.sortedBy { it.cardBoundsInScreen.top }
+                val screenSignature = targets.joinToString("||") {
+                    it.buttonType + "|" + fmt(it.fare) + "|" + it.cardBoundsInScreen.toShortString() + "|" + it.cardText
+                }
                 for (target in targets) {
                     val parsed = OfferParser.parse(target.cardText) ?: continue
                     if (!parsed.hasRouteDetails) {
@@ -571,7 +575,9 @@ class OfferAccessibilityService : AccessibilityService() {
                         continue
                     }
                     val now = System.currentTimeMillis()
-                    if (!DiscardXStore.mayDiscardNow(this, now)) {
+                    if (!DiscardXStore.mayDiscardNow(this, now) ||
+                        !DiscardXStore.mayProcessScreen(this, screenSignature)
+                    ) {
                         continue
                     }
 
@@ -623,7 +629,7 @@ class OfferAccessibilityService : AccessibilityService() {
                                     OfferClickResult(false, false)
                                 } else {
                                     DiscardXStore.markAttempted(this, fingerprint, now)
-                                    DiscardXStore.markDiscardAttempt(this, now)
+                                    DiscardXStore.markDiscardAttempt(this, now, screenSignature)
                                     OfferClicker.clickX(freshTarget, freshRoot)
                                 }
                             }
