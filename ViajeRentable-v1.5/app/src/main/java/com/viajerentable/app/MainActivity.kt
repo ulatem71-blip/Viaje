@@ -548,6 +548,21 @@ class MainActivity : Activity() {
         })
         content.addView(auditCard)
 
+        content.addView(sectionTitle("Auditoría persistente de descartes X"))
+        val discardAuditCard = card()
+        val discardAuditText = bodyText(LogStore.readDiscardAudit(this)).apply {
+            typeface = Typeface.MONOSPACE
+            textSize = 12f
+        }
+        discardAuditCard.addView(discardAuditText)
+        discardAuditCard.addView(actionButton("Copiar auditoría de descartes") {
+            copyToClipboard("Auditoría de descartes X", LogStore.readDiscardAudit(this))
+        })
+        discardAuditCard.addView(actionButton("Exportar descartes CSV", primary = false) {
+            exportDiscardAuditCsv()
+        })
+        content.addView(discardAuditCard)
+
         collapseDiagnosticSections(content)
         simulationOutput.typeface = Typeface.MONOSPACE
         simulationOutput.textSize = 12f
@@ -983,6 +998,19 @@ class MainActivity : Activity() {
         updatingAutoAcceptance = true
         autoAcceptanceSwitch.isChecked = checked
         updatingAutoAcceptance = false
+    }
+
+    private fun exportDiscardAuditCsv() {
+        val file = File(cacheDir, "auditoria_descartes_x.csv")
+        file.writeText(LogStore.csvDiscardAudit(this), Charsets.UTF_8)
+        val uri = FileProvider.getUriForFile(this, "com.viajerentable.app.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_SUBJECT, "Auditoría de descartes X")
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, "Compartir auditoría CSV"))
     }
 
     private fun exportAuditCsv() {
