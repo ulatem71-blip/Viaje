@@ -27,6 +27,7 @@ object SystemPowerStore {
         }
         if (!isOn) {
             AutoAcceptanceStore.setEnabled(context, false)
+            DiscardXStore.disableAll(context)
         }
     }
 
