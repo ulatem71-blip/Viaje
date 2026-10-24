@@ -251,6 +251,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         continue
                     }
                     if (decision?.decision == Decision.ACEPTARIA) {
+                        recordAcceptanceDiscrepancy("tarjeta ambigua")
                         OfferButtonTrialStore.incrementAcceptedWithoutButton(this)
                         LogStore.add(
                             this,
@@ -311,6 +312,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         kotlin.math.abs(routeMatch.parsed.fare - target.fare) >= 0.01
                     ) {
                         OfferButtonTrialStore.incrementDiscrepancies(this)
+                        recordAcceptanceDiscrepancy("discrepancia de tarifa")
                         LogStore.add(
                             this,
                             "ENSAYO: DISCREPANCIA tarifa ${fmt(target.fare)} vs ${fmt(routeMatch.parsed.fare)}"
@@ -466,6 +468,21 @@ class OfferAccessibilityService : AccessibilityService() {
             } finally {
                 root.recycle()
             }
+        }
+    }
+
+    private fun recordAcceptanceDiscrepancy(reason: String) {
+        if (!AutoAcceptanceStore.isEnabled(this)) {
+            return
+        }
+        val state = AutoAcceptanceStore.recordDiscrepancy(this)
+        if (AutoAcceptanceShutdownPolicy.shouldDisable(
+                true,
+                AutoAcceptanceShutdownTrigger.TARIFF_DISCREPANCY,
+                state
+            )
+        ) {
+            disableAutoAcceptance("tres discrepancias: $reason")
         }
     }
 
