@@ -127,3 +127,16 @@
 - Pruebas unitarias cubren la puerta de decisión, umbrales de apagado seguro y expiración de huellas. No requieren interactuar con Uber.
 - CI: pendiente de ejecutar y confirmar en esta rama; no integrar hasta que pasen el guard anti-clics, compilación, pruebas y generación del APK.
 
+## Versión 1.16.1 — descarte asistido por X
+- Rama: `chatgpt/descartar-x`, basada en `chatgpt/aceptacion-real`; no se modifica `main`.
+- Versión Android: `versionName = "1.16.1"`, `versionCode = 37`.
+- Inicio añade los interruptores `Descartar sugerencias (Me interesa)` y `Rechazar ofertas asignadas (Aceptar)`; ambos empiezan apagados, exigen diálogo de riesgo y se apagan con `DETENER TODO`, el interruptor maestro y al cambiar de versión.
+- Solo se permite descartar una oferta con ruta completa y decisión `RECHAZARIA`; nunca `SIN_DATOS`, `ACEPTARIA`, tarjetas ambiguas o tarifas discrepantes.
+- La X debe ser un Button sin texto ni descripción, clicable, habilitado y visible, de 100–170 px en cada dimensión, dentro de la tarjeta y cerca de su borde superior derecho. Si hay más de una candidata, no se pulsa.
+- La acción vuelve a leer la ventana, relocaliza tarjeta y X, compara tarifa y ruta, limita a un clic por huella con expiración de 10 minutos, impone 2 segundos entre descartes y espera cambio de pantalla antes de procesar otra tarjeta.
+- El ensayo se registra incluso con interruptores apagados. Los casos rechazables sin X guardan el volcado de ventana en un almacén separado, accesible desde Diagnóstico.
+- La auditoría de descarte persiste fecha, tarifa, ruta, motivo, tipo de tarjeta, bounds de X y resultado; Diagnóstico permite copiarla o exportarla a CSV.
+- El tope consecutivo de descartes sin aceptación es configurable (1–100, predeterminado 15); al alcanzarlo se apagan los interruptores de descarte y se emite alerta sonora. Los fallos de clic y discrepancias aplican los apagados de seguridad.
+- Pruebas unitarias: puerta de descarte, reconocimiento de X única/ambigua/tamaño/bounds, expiración de huellas y tope consecutivo.
+- CI de esta rama: pendiente de confirmación; no integrar hasta que pasen guard, compilación, pruebas y artefacto APK.
+
