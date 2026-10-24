@@ -7,6 +7,8 @@ object LogStore {
     private const val AUDIT_PREFS = "acceptance_audit"
     private const val AUDIT_KEY = "entries"
     private const val AUDIT_LIMIT = 1000
+    private const val DISCARD_AUDIT_PREFS = "discard_x_audit"
+    private const val DISCARD_AUDIT_KEY = "entries"
     private const val KEY = "entries"
     private const val LAST_DIAGNOSTIC_KEY = "last_diagnostic_at"
     private const val LAST_MULTI_CARD_KEY = "last_multi_card_at"
@@ -112,6 +114,38 @@ object LogStore {
         val header = "fecha,tarifaCRC,ruta,recogidaKm,netoPorKm,netoPorHora,boundsBoton,resultado"
         val data = rows.map { line ->
             line.split("|", limit = 8).joinToString(",") { cell ->
+                "\"" + cell.replace("\"", "\"\"") + "\""
+            }
+        }
+        return (listOf(header) + data).joinToString("\r\n")
+    }
+
+    @Synchronized
+    fun addDiscardAudit(c: Context, line: String) {
+        val preferences = c.getSharedPreferences(DISCARD_AUDIT_PREFS, Context.MODE_PRIVATE)
+        val rows = (preferences.getString(DISCARD_AUDIT_KEY, "") ?: "")
+            .lines()
+            .filter { it.isNotBlank() }
+            .toMutableList()
+        rows.add(line)
+        while (rows.size > AUDIT_LIMIT) {
+            rows.removeAt(0)
+        }
+        preferences.edit().putString(DISCARD_AUDIT_KEY, rows.joinToString("\n")).apply()
+    }
+
+    fun readDiscardAudit(c: Context): String {
+        return c.getSharedPreferences(DISCARD_AUDIT_PREFS, Context.MODE_PRIVATE)
+            .getString(DISCARD_AUDIT_KEY, "Sin descartes reales registrados.")
+            ?: ""
+    }
+
+    fun csvDiscardAudit(c: Context): String {
+        val rows = (c.getSharedPreferences(DISCARD_AUDIT_PREFS, Context.MODE_PRIVATE)
+            .getString(DISCARD_AUDIT_KEY, "") ?: "").lines().filter { it.isNotBlank() }
+        val header = "fecha,tarifaCRC,ruta,motivoRechazo,tipoTarjeta,boundsX,resultado"
+        val data = rows.map { line ->
+            line.split("|", limit = 7).joinToString(",") { cell ->
                 "\"" + cell.replace("\"", "\"\"") + "\""
             }
         }
