@@ -50,9 +50,7 @@ class OfferAccessibilityService : AccessibilityService() {
                 } finally {
                     active?.recycle()
                 }
-                if (activePackage != UBER_DRIVER_PACKAGE &&
-                    true
-                ) {
+                if (activePackage != UBER_DRIVER_PACKAGE) {
                     disableAllAutomaticActions("Uber Driver dejó de estar en primer plano")
                 }
             }
