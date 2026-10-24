@@ -507,8 +507,43 @@ class OfferAccessibilityService : AccessibilityService() {
                     continue
                 }
                 val located = OfferButtonLocator.locate(root)
-                if (discardEnabled && located.cards.isNotEmpty()) {
+                if (discardEnabled && (located.cards.isNotEmpty() || located.ambiguous.isNotEmpty())) {
                     hadOfferLocatedWhileEnabled = true
+                }
+                for (ambiguous in located.ambiguous) {
+                    val ambiguousOffer = OfferParser.parse(ambiguous.cardText) ?: continue
+                    if (!ambiguousOffer.hasRouteDetails) {
+                        continue
+                    }
+                    val ambiguousCosts = DriverCostsStore.read(this)
+                    val ambiguousResult = Profitability.calculate(
+                        Offer(
+                            ambiguousOffer.fare,
+                            ambiguousOffer.pickupKm!!,
+                            ambiguousOffer.pickupMinutes!!,
+                            ambiguousOffer.tripKm!!,
+                            ambiguousOffer.tripMinutes!!
+                        ),
+                        ambiguousCosts
+                    )
+                    val ambiguousDecision = DemoDecision.evaluate(
+                        ambiguousOffer,
+                        ambiguousResult,
+                        ambiguousCosts
+                    )
+                    val ambiguousFingerprint = OfferClicker.fingerprint(ambiguousOffer)
+                    if (DiscardXStore.shouldLogTrial(this, ambiguousFingerprint)) {
+                        LogStore.add(
+                            this,
+                            "ENSAYO: HABRÍA DESCARTADO tipo=${ambiguous.buttonType} X=NO_LOCALIZADA tarifa=${fmt(ambiguousOffer.fare)} decisión=${ambiguousDecision.decision}; tarjeta ambigua"
+                        )
+                    }
+                    if (ambiguousDecision.decision == Decision.RECHAZARIA) {
+                        MissingXCaseDumpStore.saveLastDump(this, captureWindowTree(windowList))
+                        if (discardEnabled) {
+                            recordDiscardDiscrepancy("tarjeta ambigua")
+                        }
+                    }
                 }
                 val targets = located.cards.sortedBy { it.cardBoundsInScreen.top }
                 val screenSignature = targets.joinToString("||") {
