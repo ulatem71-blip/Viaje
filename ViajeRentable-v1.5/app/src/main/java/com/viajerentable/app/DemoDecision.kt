@@ -20,11 +20,18 @@ object DemoDecision {
             return DemoResult(Decision.SIN_DATOS, listOf("Sin datos de recorrido"))
         }
 
+        val reasons = mutableListOf<String>()
+        if (offer.pickupKm != null && offer.pickupKm > costs.maxPickupKm) {
+            reasons.add(
+                "Recogida ${format(offer.pickupKm)} km > máximo ${format(costs.maxPickupKm)} km"
+            )
+            return DemoResult(Decision.RECHAZARIA, reasons)
+        }
+
         if (result.recommended) {
             return DemoResult(Decision.ACEPTARIA, listOf("Cumple neto/km y neto/hora"))
         }
 
-        val reasons = mutableListOf<String>()
         if (result.net < 0.0) {
             reasons.add("Neto negativo")
         }
