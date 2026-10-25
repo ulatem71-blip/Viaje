@@ -79,7 +79,7 @@ internal object DiscardXRecognition {
     }
 }
 
-internal data class ConsecutiveDiscardState(
+data class ConsecutiveDiscardState(
     val consecutiveWithoutAcceptance: Int = 0,
     val limit: Int = 15
 ) {
