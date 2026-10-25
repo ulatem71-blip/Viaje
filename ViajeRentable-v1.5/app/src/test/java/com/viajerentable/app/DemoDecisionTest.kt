@@ -34,6 +34,36 @@ class DemoDecisionTest {
     }
 
     @Test
+    fun profitableOfferInRiskZoneIsRejectedBeforeProfitabilityRule() {
+        val p = offer(5000.0).copy(destinationText = "SAN RAFAEL - LA UNION")
+        val result = calculate(p)
+        assertTrue(result.recommended)
+
+        val decision = DemoDecision.evaluate(
+            p,
+            result,
+            defaultCosts,
+            ZoneRiskConfig(names = listOf("SAN RAFAEL"))
+        )
+
+        assertEquals(Decision.RECHAZARIA, decision.decision)
+        assertEquals(listOf("Zona de riesgo: SAN RAFAEL"), decision.reasons)
+    }
+
+    @Test
+    fun compactOfferWithoutDestinationTextStillHasNoData() {
+        val p = ParsedOffer(3200.0)
+        val decision = DemoDecision.evaluate(
+            p,
+            null,
+            defaultCosts,
+            ZoneRiskConfig(names = listOf("SAN RAFAEL"))
+        )
+
+        assertEquals(Decision.SIN_DATOS, decision.decision)
+    }
+
+    @Test
     fun lowNetPerKmWouldBeRejectedWithReason() {
         val costs = DriverCosts(kmPerLiter = 1000000.0, fuelPricePerLiter = 0.0,
             maintenancePerKm = 0.0, minimumNetPerHour = 0.0, minimumNetPerKm = 500.0)
