@@ -24,6 +24,8 @@ class OfferParserTest {
         assertEquals(10.0, offer.tripMinutes!!, 0.01)
         assertEquals("C. Lisboa", offer.pickupPlace)
         assertEquals("SAN RAFAEL - LA UNION", offer.destinationPlace)
+        assertEquals("C. Lisboa", offer.pickupText)
+        assertEquals("SAN RAFAEL - LA UNION", offer.destinationText)
         assertTrue(offer.hasRouteDetails)
     }
 
@@ -37,6 +39,21 @@ class OfferParserTest {
         assertEquals(3206.05, offer!!.fare, 0.01)
         assertFalse(offer.hasRouteDetails)
         assertNull(offer.pickupKm)
+        assertEquals("", offer.destinationText)
+        assertEquals("", offer.pickupText)
+    }
+
+    @Test
+    fun keepsStreetBeforeNeighborhoodInDestinationText() {
+        val offer = OfferParser.parse(
+            "UberX | CRC1,404.33 | A 7 min (1.4 km) | " +
+                "C. la Cruz | Viaje: 10 min (2.7 km) | " +
+                "C. la Cruz, SAN PEDRO - MONTES DE OCA | Aceptar"
+        )
+
+        assertNotNull(offer)
+        assertEquals("C. la Cruz, SAN PEDRO - MONTES DE OCA", offer!!.destinationText)
+        assertEquals("C. la Cruz", offer.pickupText)
     }
 
     @Test
