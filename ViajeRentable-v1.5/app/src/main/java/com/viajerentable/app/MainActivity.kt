@@ -68,6 +68,11 @@ class MainActivity : Activity() {
     private lateinit var autoAcceptanceSwitch: Switch
     private lateinit var auditText: TextView
     private var updatingAutoAcceptance = false
+    private lateinit var zoneRiskNameInput: EditText
+    private lateinit var zoneRiskList: LinearLayout
+    private lateinit var zoneRiskDestinationSwitch: Switch
+    private lateinit var zoneRiskPickupSwitch: Switch
+    private var updatingZoneRiskSwitches = false
 
     private val pageViews = mutableListOf<LinearLayout>()
     private val tabButtons = mutableListOf<LinearLayout>()
@@ -328,6 +333,81 @@ class MainActivity : Activity() {
         val rangeHelp = bodyText("Rangos: 0–50 % de consumo extra; recogida 0,1–20 km.")
         acCard.addView(rangeHelp)
         content.addView(acCard)
+
+        content.addView(sectionTitle("Zonas de riesgo"))
+        val zoneRiskCard = card()
+        val zoneInputRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        zoneRiskNameInput = EditText(this).apply {
+            hint = "Nombre de zona"
+            textSize = 16f
+            minHeight = dp(52)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setTextColor(palette.text)
+            setHintTextColor(palette.muted)
+            background = roundedDrawable(palette.card, 12, palette.border, 1.5f)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+        }
+        zoneInputRow.addView(
+            zoneRiskNameInput,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dp(8)
+            }
+        )
+        zoneInputRow.addView(actionButton("Agregar", primary = true) {
+            val name = zoneRiskNameInput.text.toString().trim()
+            when {
+                name.isBlank() -> showToast("Escribe un nombre de zona")
+                ZoneRiskStore.add(this, name) -> {
+                    zoneRiskNameInput.setText("")
+                    refreshZoneRiskList()
+                    refreshOffers()
+                    showToast("Zona de riesgo agregada")
+                }
+                else -> showToast("La zona ya existe o se alcanzó el máximo de 100")
+            }
+        })
+        zoneRiskCard.addView(zoneInputRow)
+
+        zoneRiskDestinationSwitch = Switch(this).apply {
+            text = "Aplicar al destino"
+            textSize = 16f
+            minHeight = dp(48)
+            isChecked = ZoneRiskStore.read(this@MainActivity).applyToDestination
+            setOnCheckedChangeListener { _, checked ->
+                if (!updatingZoneRiskSwitches) {
+                    ZoneRiskStore.setApplyToDestination(this@MainActivity, checked)
+                    refreshOffers()
+                }
+            }
+        }
+        zoneRiskCard.addView(zoneRiskDestinationSwitch)
+        zoneRiskPickupSwitch = Switch(this).apply {
+            text = "Aplicar también a la recogida"
+            textSize = 16f
+            minHeight = dp(48)
+            isChecked = ZoneRiskStore.read(this@MainActivity).applyToPickup
+            setOnCheckedChangeListener { _, checked ->
+                if (!updatingZoneRiskSwitches) {
+                    ZoneRiskStore.setApplyToPickup(this@MainActivity, checked)
+                    refreshOffers()
+                }
+            }
+        }
+        zoneRiskCard.addView(zoneRiskPickupSwitch)
+        zoneRiskList = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        zoneRiskCard.addView(zoneRiskList)
+        zoneRiskCard.addView(bodyText(
+            "Escribe el nombre como lo muestra Uber. Coincide si el destino lo contiene.",
+            small = true
+        ))
+        content.addView(zoneRiskCard)
+        refreshZoneRiskList()
 
         val resultCard = card()
         resultCard.addView(TextView(this).apply {
@@ -647,12 +727,12 @@ class MainActivity : Activity() {
             return
         }
         if (!parsed.hasRouteDetails) {
-            val demo = DemoDecision.evaluate(parsed, null, costs)
+            val demo = DemoDecision.evaluate(parsed, null, costs, ZoneRiskStore.read(this))
             simulationOutput.text = "Tarifa: ₡${fmt(parsed.fare)}\nNeto: sin datos\nNeto/km: sin datos\nNeto/hora: sin datos\nDecisión: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
             return
         }
         val result = calculate(parsed, costs)
-        val demo = DemoDecision.evaluate(parsed, result, costs)
+        val demo = DemoDecision.evaluate(parsed, result, costs, ZoneRiskStore.read(this))
         simulationOutput.text = "Tarifa: ₡${fmt(parsed.fare)}\nNeto: ₡${fmt(result.net)}\nNeto/km: ₡${fmt(result.netPerKm)}\nNeto/hora: ₡${fmt(result.netPerHour)}\nA/C: ${if (costs.acEnabled) "sí" else "no"}\nDecisión: ${demo.decision}\nMotivos: ${demo.reasons.joinToString("; ")}"
     }
 
@@ -673,6 +753,7 @@ class MainActivity : Activity() {
         refreshHome()
         refreshOffers()
         refreshDiagnostics()
+        refreshZoneRiskList()
         updateFuelCostPreview()
     }
 
@@ -834,11 +915,73 @@ class MainActivity : Activity() {
             if (offer.reasons.isNotEmpty()) {
                 offerCard.addView(bodyText("Motivos: ${offer.reasons.joinToString("; ")}", small = true))
             }
+            val destination = offer.parsed.destinationText
+            if (destination.isNotBlank()) {
+                offerCard.addView(bodyText("Destino: $destination", small = true))
+                offerCard.addView(actionButton("Marcar destino como zona de riesgo", primary = false) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Agregar zona de riesgo")
+                        .setMessage("¿Agregar \"$destination\" a las zonas de riesgo?")
+                        .setNegativeButton("Cancelar", null)
+                        .setPositiveButton("Agregar") { _, _ ->
+                            if (ZoneRiskStore.add(this, destination)) {
+                                refreshZoneRiskList()
+                                refreshOffers()
+                                showToast("Destino agregado a zonas de riesgo")
+                            } else {
+                                showToast("El destino ya existe o se alcanzó el máximo de 100")
+                            }
+                        }
+                        .show()
+                })
+            }
             outer.addView(offerCard, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             list.addView(outer, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = dp(12) })
+        }
+    }
+
+    private fun refreshZoneRiskList() {
+        if (!::zoneRiskList.isInitialized) {
+            return
+        }
+        zoneRiskList.removeAllViews()
+        val config = ZoneRiskStore.read(this)
+        updatingZoneRiskSwitches = true
+        if (::zoneRiskDestinationSwitch.isInitialized) {
+            zoneRiskDestinationSwitch.isChecked = config.applyToDestination
+        }
+        if (::zoneRiskPickupSwitch.isInitialized) {
+            zoneRiskPickupSwitch.isChecked = config.applyToPickup
+        }
+        updatingZoneRiskSwitches = false
+
+        if (config.names.isEmpty()) {
+            zoneRiskList.addView(bodyText("Todavía no hay zonas guardadas.", small = true))
+            return
+        }
+        for (name in config.names) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = roundedDrawable(palette.card, 10, palette.border, 1f)
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+            }
+            row.addView(bodyText(name), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(actionButton("X", primary = false) {
+                ZoneRiskStore.remove(this, name)
+                refreshZoneRiskList()
+                refreshOffers()
+                showToast("Zona eliminada")
+            })
+            zoneRiskList.addView(row, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(6)
+            })
         }
     }
 
