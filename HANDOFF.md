@@ -127,3 +127,14 @@
 - Pruebas unitarias cubren la puerta de decisión, umbrales de apagado seguro y expiración de huellas. No requieren interactuar con Uber.
 - CI: pendiente de ejecutar y confirmar en esta rama; no integrar hasta que pasen el guard anti-clics, compilación, pruebas y generación del APK.
 
+## Zonas de riesgo — versión 1.16.1
+- Rama: `chatgpt/zonas-riesgo`, creada desde `main` 1.16.0. No integrar ni actualizar `main` sin autorización.
+- Versión Android: `versionName = "1.16.1"`, `versionCode = 37`.
+- `ParsedOffer` incorpora `destinationText` y `pickupText`, ambos vacíos por defecto; el parser conserva el texto de ubicación que sigue a cada tramo, incluyendo calles y barrios en una misma cadena.
+- `ZoneRiskStore` persiste localmente hasta 100 nombres únicos. Normaliza mayúsculas, tildes, signos y espacios; la coincidencia es por contención. `Aplicar al destino` está activado por defecto y `Aplicar también a la recogida` desactivado.
+- `DemoDecision.evaluate` consulta zonas de riesgo antes de la rentabilidad y devuelve `RECHAZARIA` con `Zona de riesgo: <nombre guardado>`. Una oferta sin destino no coincide por esa regla.
+- Costos incorpora la tarjeta contorneada de zonas de riesgo, alta y eliminación. Ofertas muestra destino y el atajo `Marcar destino como zona de riesgo`. El CSV conserva las columnas previas y agrega al final `destino,zonaRiesgo`.
+- Añadidas pruebas de normalización, contención, ausencia de coincidencia, recogida con interruptor apagado/encendido, oferta compacta y oferta rentable en zona de riesgo.
+- No se añadieron clics ni se modificó `.github/workflows/build.yml`. `performAction` y `ACTION_CLICK` siguen limitados a `OfferClicker.kt`; `dispatchGesture` y `canPerformGestures` siguen prohibidos.
+- CI: pendiente de verificación para esta rama; no integrar hasta que pasen compilación, pruebas y guard anti-clics.
+
