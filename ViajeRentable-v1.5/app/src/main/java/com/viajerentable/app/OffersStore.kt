@@ -106,11 +106,7 @@ object OffersStore {
                         reasons,
                         o.optBoolean("ac", false),
                         o.optString("zoneRisk", "").takeIf { it.isNotBlank() }
-                            ?: ZoneRiskStore.match(p, ZoneRiskConfig(
-                                names = emptyList(),
-                                applyToDestination = false,
-                                applyToPickup = false
-                            ))
+                            ?: ZoneRiskStore.match(p, ZoneRiskStore.read(c))
                     )
                 )
             } catch (_: Exception) {
