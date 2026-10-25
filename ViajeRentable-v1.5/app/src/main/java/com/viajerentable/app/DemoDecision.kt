@@ -15,7 +15,20 @@ data class DemoResult(
 )
 
 object DemoDecision {
-    fun evaluate(offer: ParsedOffer, result: ProfitResult?, costs: DriverCosts): DemoResult {
+    fun evaluate(
+        offer: ParsedOffer,
+        result: ProfitResult?,
+        costs: DriverCosts,
+        zoneRiskConfig: ZoneRiskConfig = ZoneRiskConfig()
+    ): DemoResult {
+        val riskyZone = ZoneRiskStore.match(offer, zoneRiskConfig)
+        if (riskyZone != null) {
+            return DemoResult(
+                Decision.RECHAZARIA,
+                listOf("Zona de riesgo: $riskyZone")
+            )
+        }
+
         if (!offer.hasRouteDetails || result == null) {
             return DemoResult(Decision.SIN_DATOS, listOf("Sin datos de recorrido"))
         }
