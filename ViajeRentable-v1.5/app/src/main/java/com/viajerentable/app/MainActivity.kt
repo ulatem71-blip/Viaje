@@ -66,7 +66,11 @@ class MainActivity : Activity() {
     private lateinit var trialCountersText: TextView
     private lateinit var saveCostsButton: Button
     private lateinit var autoAcceptanceSwitch: Switch
+    private lateinit var discardSuggestionsSwitch: Switch
+    private lateinit var discardAssignedSwitch: Switch
+    private lateinit var discardLimitInput: EditText
     private lateinit var auditText: TextView
+    private lateinit var discardAuditText: TextView
     private var updatingAutoAcceptance = false
     private lateinit var zoneRiskNameInput: EditText
     private lateinit var zoneRiskList: LinearLayout
@@ -85,6 +89,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AutoAcceptanceStore.enforceOffForVersionChange(this, appVersion())
+        DiscardXStore.enforceOffForVersionChange(this, appVersion())
         buildInterface()
         loadCosts()
         showPage(0)
@@ -203,10 +208,12 @@ class MainActivity : Activity() {
         content.addView(powerCard)
         content.addView(actionButton("DETENER TODO", primary = false) {
             AutoAcceptanceStore.setEnabled(this, false)
+            DiscardXStore.disableAll(this)
             SystemPowerStore.setOn(this, false)
             setAutoAcceptanceSwitchChecked(false)
+            setDiscardSwitchesChecked(false, false)
             refreshAll()
-            showToast("Sistema y aceptación automática apagados")
+            showToast("Sistema y automatizaciones apagados")
         })
         content.addView(sectionTitle("Servicio"))
         statusText = TextView(this).apply {
@@ -253,6 +260,62 @@ class MainActivity : Activity() {
         }
         switchesCard.addView(treeDumpSwitch)
         content.addView(switchesCard)
+
+        content.addView(sectionTitle("Descarte automático por X"))
+        val discardCard = card()
+        discardSuggestionsSwitch = Switch(this).apply {
+            text = "Descartar sugerencias (Me interesa)"
+            textSize = 17f
+            minHeight = dp(52)
+            isChecked = DiscardXStore.suggestionsEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                if (updatingDiscardSwitches) {
+                    return@setOnCheckedChangeListener
+                }
+                if (checked) {
+                    setDiscardSwitchesChecked(false, DiscardXStore.assignedEnabled(this@MainActivity))
+                    showDiscardWarning(true)
+                } else {
+                    DiscardXStore.setSuggestionsEnabled(this@MainActivity, false)
+                }
+            }
+        }
+        discardCard.addView(discardSuggestionsSwitch)
+        discardAssignedSwitch = Switch(this).apply {
+            text = "Rechazar ofertas asignadas (Aceptar)"
+            textSize = 17f
+            minHeight = dp(52)
+            isChecked = DiscardXStore.assignedEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                if (updatingDiscardSwitches) {
+                    return@setOnCheckedChangeListener
+                }
+                if (checked) {
+                    setDiscardSwitchesChecked(DiscardXStore.suggestionsEnabled(this@MainActivity), false)
+                    showDiscardWarning(false)
+                } else {
+                    DiscardXStore.setAssignedEnabled(this@MainActivity, false)
+                }
+            }
+        }
+        discardCard.addView(discardAssignedSwitch)
+        discardLimitInput = labeledInput(
+            discardCard,
+            "Tope consecutivo sin aceptación (1–100)",
+            DiscardXStore.DEFAULT_CONSECUTIVE_LIMIT.toString()
+        )
+        discardLimitInput.setText(DiscardXStore.consecutiveLimit(this).toString())
+        discardCard.addView(actionButton("Guardar tope", primary = false) {
+            val limit = discardLimitInput.text.toString().toIntOrNull()
+            if (limit == null || limit !in 1..100) {
+                showToast("El tope debe estar entre 1 y 100")
+            } else {
+                DiscardXStore.setConsecutiveLimit(this, limit)
+                showToast("Tope guardado")
+            }
+        })
+        discardCard.addView(bodyText("Los descartes se registran en ensayo aunque ambos interruptores estén apagados."))
+        content.addView(discardCard)
 
         content.addView(sectionTitle("Contadores de hoy"))
         val dailyCard = LinearLayout(this).apply {
@@ -503,6 +566,9 @@ class MainActivity : Activity() {
         trialCard.addView(actionButton("Copiar volcado del último caso ambiguo") {
             copyToClipboard("Volcado del caso ambiguo", AmbiguousCaseDumpStore.lastDump(this))
         })
+        trialCard.addView(actionButton("Copiar volcado del último caso sin X") {
+            copyToClipboard("Volcado del caso sin X", MissingXCaseDumpStore.lastDump(this))
+        })
         trialCard.addView(actionButton("Reiniciar contadores") {
             OfferButtonTrialStore.reset(this)
             refreshDiagnostics()
@@ -562,6 +628,21 @@ class MainActivity : Activity() {
             exportAuditCsv()
         })
         content.addView(auditCard)
+
+        content.addView(sectionTitle("Auditoría persistente de descartes X"))
+        val discardAuditCard = card()
+        discardAuditText = bodyText(LogStore.readDiscardAudit(this)).apply {
+            typeface = Typeface.MONOSPACE
+            textSize = 12f
+        }
+        discardAuditCard.addView(discardAuditText)
+        discardAuditCard.addView(actionButton("Copiar auditoría de descartes") {
+            copyToClipboard("Auditoría de descartes X", LogStore.readDiscardAudit(this))
+        })
+        discardAuditCard.addView(actionButton("Exportar descartes CSV", primary = false) {
+            exportDiscardAuditCsv()
+        })
+        content.addView(discardAuditCard)
 
         collapseDiagnosticSections(content)
         simulationOutput.typeface = Typeface.MONOSPACE
@@ -1001,9 +1082,64 @@ class MainActivity : Activity() {
         if (::auditText.isInitialized) {
             auditText.text = LogStore.readAudit(this)
         }
+        if (::discardAuditText.isInitialized) {
+            discardAuditText.text = LogStore.readDiscardAudit(this)
+        }
         if (::autoAcceptanceSwitch.isInitialized) {
             setAutoAcceptanceSwitchChecked(AutoAcceptanceStore.isEnabled(this))
         }
+        if (::discardSuggestionsSwitch.isInitialized && ::discardAssignedSwitch.isInitialized) {
+            setDiscardSwitchesChecked(
+                DiscardXStore.suggestionsEnabled(this),
+                DiscardXStore.assignedEnabled(this)
+            )
+        }
+    }
+
+    private var updatingDiscardSwitches = false
+
+    private fun setDiscardSwitchesChecked(suggestions: Boolean, assigned: Boolean) {
+        if (!::discardSuggestionsSwitch.isInitialized || !::discardAssignedSwitch.isInitialized) {
+            return
+        }
+        updatingDiscardSwitches = true
+        discardSuggestionsSwitch.isChecked = suggestions
+        discardAssignedSwitch.isChecked = assigned
+        updatingDiscardSwitches = false
+    }
+
+    private fun showDiscardWarning(suggestions: Boolean) {
+        AlertDialog.Builder(this)
+            .setTitle("Riesgo de descarte automático")
+            .setMessage("Esto pulsa la X en las ofertas asignadas a ti. Uber puede bajar tu tasa de aceptación o desconectarte por perder solicitudes.")
+            .setNegativeButton("Cancelar") { _, _ ->
+                if (suggestions) {
+                    setDiscardSwitchesChecked(false, DiscardXStore.assignedEnabled(this))
+                } else {
+                    setDiscardSwitchesChecked(DiscardXStore.suggestionsEnabled(this), false)
+                }
+            }
+            .setPositiveButton("Entiendo, activar") { _, _ ->
+                if (suggestions) {
+                    DiscardXStore.setSuggestionsEnabled(this, true)
+                } else {
+                    DiscardXStore.setAssignedEnabled(this, true)
+                }
+                setDiscardSwitchesChecked(
+                    DiscardXStore.suggestionsEnabled(this),
+                    DiscardXStore.assignedEnabled(this)
+                )
+                LogStore.add(this, "DESCARTE AUTOMÁTICO ACTIVADO: " + if (suggestions) "Me interesa" else "Aceptar")
+                refreshAll()
+            }
+            .setOnCancelListener {
+                if (suggestions) {
+                    setDiscardSwitchesChecked(false, DiscardXStore.assignedEnabled(this))
+                } else {
+                    setDiscardSwitchesChecked(DiscardXStore.suggestionsEnabled(this), false)
+                }
+            }
+            .show()
     }
 
     private fun setAutoAcceptanceSwitchChecked(checked: Boolean) {
@@ -1013,6 +1149,19 @@ class MainActivity : Activity() {
         updatingAutoAcceptance = true
         autoAcceptanceSwitch.isChecked = checked
         updatingAutoAcceptance = false
+    }
+
+    private fun exportDiscardAuditCsv() {
+        val file = File(cacheDir, "auditoria_descartes_x.csv")
+        file.writeText(LogStore.csvDiscardAudit(this), Charsets.UTF_8)
+        val uri = FileProvider.getUriForFile(this, "com.viajerentable.app.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_SUBJECT, "Auditoría de descartes X")
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, "Compartir auditoría CSV"))
     }
 
     private fun exportAuditCsv() {

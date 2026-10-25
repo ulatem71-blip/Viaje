@@ -21,7 +21,8 @@ data class CardTarget(
     val buttonBoundsInScreen: ScreenBounds,
     val xBoundsInScreen: ScreenBounds?,
     val isEnabled: Boolean,
-    val isVisibleToUser: Boolean
+    val isVisibleToUser: Boolean,
+    val cardBoundsInScreen: ScreenBounds = ScreenBounds(0, 0, 0, 0)
 )
 
 data class AmbiguousCard(
@@ -168,27 +169,32 @@ object OfferButtonLocator {
                 buttonBoundsInScreen = button.boundsInScreen,
                 xBoundsInScreen = xButton?.boundsInScreen,
                 isEnabled = button.isEnabled,
-                isVisibleToUser = button.isVisibleToUser
+                isVisibleToUser = button.isVisibleToUser,
+                cardBoundsInScreen = selected.boundsInScreen
             )
         )
     }
 
     private fun findXButton(card: OfferTreeNode, cardBounds: ScreenBounds): OfferTreeNode? {
-        var found: OfferTreeNode? = null
+        val candidates = mutableListOf<Pair<OfferTreeNode, XCandidate>>()
         visit(card, emptyList()) { node, _ ->
-            if (found != null || node === card) {
+            if (node === card) {
                 return@visit
             }
-            val isButton = node.className.substringAfterLast('.').equals("Button", true)
-            val hasNoLabel = node.text.isNullOrBlank() && node.contentDescription.isNullOrBlank()
-            val bounds = node.boundsInScreen
-            val rightNear = kotlin.math.abs(cardBounds.right - bounds.right) < X_RIGHT_TOLERANCE_PX
-            val topNear = kotlin.math.abs(cardBounds.top - bounds.top) < X_TOP_TOLERANCE_PX
-            if (isButton && hasNoLabel && node.isClickable && rightNear && topNear) {
-                found = node
-            }
+            val candidate = XCandidate(
+                className = node.className,
+                text = node.text,
+                contentDescription = node.contentDescription,
+                clickable = node.isClickable,
+                enabled = node.isEnabled,
+                visible = node.isVisibleToUser,
+                bounds = node.boundsInScreen
+            )
+            candidates.add(node to candidate)
         }
-        return found
+        val selected = DiscardXRecognition.selectSingle(cardBounds, candidates.map { it.second })
+            ?: return null
+        return candidates.firstOrNull { it.second == selected }?.first
     }
 
     private fun collectFareNodes(root: OfferTreeNode): List<Pair<OfferTreeNode, String>> {
@@ -273,6 +279,4 @@ object OfferButtonLocator {
     }
 
     private const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
-    private const val X_RIGHT_TOLERANCE_PX = 80
-    private const val X_TOP_TOLERANCE_PX = 120
 }
