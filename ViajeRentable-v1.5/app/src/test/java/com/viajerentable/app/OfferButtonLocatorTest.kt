@@ -18,7 +18,7 @@ class OfferButtonLocatorTest {
         assertEquals(1803.33, target.fare, 0.01)
         assertEquals("Aceptar", target.buttonType)
         assertEquals(ScreenBounds(300, 100, 390, 150), target.buttonBoundsInScreen)
-        assertEquals(ScreenBounds(350, 10, 395, 55), target.xBoundsInScreen)
+        assertEquals(ScreenBounds(268, 10, 400, 142), target.xBoundsInScreen)
         assertTrue(target.isEnabled)
         assertTrue(target.isVisibleToUser)
         assertTrue(target.cardText.contains("Viaje:"))
@@ -124,7 +124,7 @@ class OfferButtonLocatorTest {
         val close = OfferTreeNode(
             className = "android.widget.Button",
             isClickable = true,
-            boundsInScreen = ScreenBounds(350, offset + 10, 395, offset + 55)
+            boundsInScreen = ScreenBounds(268, offset + 10, 400, offset + 142)
         )
         val scroll = OfferTreeNode(
             className = "android.widget.ScrollView",
