@@ -7,7 +7,9 @@ data class ParsedOffer(
     val tripKm: Double? = null,
     val tripMinutes: Double? = null,
     val pickupPlace: String? = null,
-    val destinationPlace: String? = null
+    val destinationPlace: String? = null,
+    val destinationText: String = "",
+    val pickupText: String = ""
 ) {
     val hasRouteDetails: Boolean
         get() = pickupKm != null &&
@@ -111,13 +113,15 @@ object OfferParser {
         val destinationPlace = findPlace(segments, tripIndex + 1, segments.size - 1)
 
         return ParsedOffer(
-            fare,
-            pickupKm,
-            pickupMinutes,
-            tripKm,
-            tripMinutes,
-            pickupPlace,
-            destinationPlace
+            fare = fare,
+            pickupKm = pickupKm,
+            pickupMinutes = pickupMinutes,
+            tripKm = tripKm,
+            tripMinutes = tripMinutes,
+            pickupPlace = pickupPlace,
+            destinationPlace = destinationPlace,
+            destinationText = destinationPlace.orEmpty(),
+            pickupText = pickupPlace.orEmpty()
         )
     }
 
