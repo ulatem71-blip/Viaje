@@ -561,10 +561,10 @@ class OfferAccessibilityService : AccessibilityService() {
     }
 
     private fun evaluateTrialDecision(offer: ParsedOffer): DemoResult {
-        if (!offer.hasRouteDetails) {
-            return DemoResult(Decision.SIN_DATOS, listOf("Sin datos de recorrido"))
-        }
         val costs = DriverCostsStore.read(this)
+        if (!offer.hasRouteDetails) {
+            return DemoDecision.evaluate(offer, null, costs, ZoneRiskStore.read(this))
+        }
         val result = Profitability.calculate(
             Offer(
                 offer.fare,
