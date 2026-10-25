@@ -13,7 +13,8 @@ data class RecordedOffer(
     val result: ProfitResult?,
     val decision: Decision? = null,
     val reasons: List<String> = emptyList(),
-    val acEnabled: Boolean = false
+    val acEnabled: Boolean = false,
+    val zoneRisk: String? = null
 )
 
 /** Private on-device log of detected offers (max 200 entries, oldest dropped whole). */
@@ -48,6 +49,9 @@ object OffersStore {
             .put("recommended", r?.recommended ?: false)
             .put("decision", demo?.decision?.name ?: JSONObject.NULL)
             .put("reasons", JSONArray(demo?.reasons ?: emptyList<String>()))
+            .put("destinationText", p.destinationText)
+            .put("pickupText", p.pickupText)
+            .put("zoneRisk", ZoneRiskStore.match(p, ZoneRiskStore.read(c)) ?: "")
             .put("ac", acEnabled)
         out.put(entry)
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, out.toString()).apply()
@@ -63,11 +67,13 @@ object OffersStore {
             try {
                 val o = a.getJSONObject(i)
                 val p = ParsedOffer(
-                    o.getDouble("fare"),
-                    optDouble(o, "pickupKm"),
-                    optDouble(o, "pickupMin"),
-                    optDouble(o, "tripKm"),
-                    optDouble(o, "tripMin")
+                    fare = o.getDouble("fare"),
+                    pickupKm = optDouble(o, "pickupKm"),
+                    pickupMinutes = optDouble(o, "pickupMin"),
+                    tripKm = optDouble(o, "tripKm"),
+                    tripMinutes = optDouble(o, "tripMin"),
+                    destinationText = o.optString("destinationText", ""),
+                    pickupText = o.optString("pickupText", "")
                 )
                 val r = if (o.isNull("net")) null else ProfitResult(
                     (p.pickupKm ?: 0.0) + (p.tripKm ?: 0.0),
@@ -91,7 +97,22 @@ object OffersStore {
                         reasonsArray.optString(j).takeIf { it.isNotBlank() }?.let(reasons::add)
                     }
                 }
-                list.add(RecordedOffer(o.getString("date"), p, r, decision, reasons, o.optBoolean("ac", false)))
+                list.add(
+                    RecordedOffer(
+                        o.getString("date"),
+                        p,
+                        r,
+                        decision,
+                        reasons,
+                        o.optBoolean("ac", false),
+                        o.optString("zoneRisk", "").takeIf { it.isNotBlank() }
+                            ?: ZoneRiskStore.match(p, ZoneRiskConfig(
+                                names = emptyList(),
+                                applyToDestination = false,
+                                applyToPickup = false
+                            ))
+                    )
+                )
             } catch (_: Exception) {
                 // Skip a corrupt entry instead of losing the whole log.
             }
@@ -110,7 +131,7 @@ object OffersStore {
     }
 
     fun csv(c: Context): String {
-        val rows = mutableListOf("fecha,tarifaCRC,recogidaKm,recogidaMin,viajeKm,viajeMin,netoCRC,netoPorKm,netoPorHora,recomendado,decisionDemo,motivos,ac")
+        val rows = mutableListOf("fecha,tarifaCRC,recogidaKm,recogidaMin,viajeKm,viajeMin,netoCRC,netoPorKm,netoPorHora,recomendado,decisionDemo,motivos,ac,destino,zonaRiesgo")
         for (x in read(c).reversed()) {
             rows.add(
                 listOf(
@@ -126,7 +147,9 @@ object OffersStore {
                     (x.result?.recommended ?: false).toString(),
                     x.decision?.name ?: "",
                     x.reasons.joinToString("; "),
-                    if (x.acEnabled) "sí" else "no"
+                    if (x.acEnabled) "sí" else "no",
+                    x.parsed.destinationText,
+                    x.zoneRisk ?: ""
                 ).joinToString(",") { csvCell(it) }
             )
         }
