@@ -152,7 +152,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         costs
                     )
                     val demo = if (DemoModeStore.isEnabled(this)) {
-                        DemoDecision.evaluate(parsed, result, costs)
+                        DemoDecision.evaluate(parsed, result, costs, ZoneRiskStore.read(this))
                     } else {
                         null
                     }
@@ -400,7 +400,7 @@ class OfferAccessibilityService : AccessibilityService() {
                         ),
                         costs
                     )
-                    val decision = DemoDecision.evaluate(parsed, profitability, costs).decision
+                    val decision = DemoDecision.evaluate(parsed, profitability, costs, ZoneRiskStore.read(this)).decision
                     val gate = AcceptanceDecisionGate.evaluate(
                         AcceptanceGateInput(
                             enabled = SystemPowerStore.isOn(this) &&
@@ -575,7 +575,7 @@ class OfferAccessibilityService : AccessibilityService() {
             ),
             costs
         )
-        return DemoDecision.evaluate(offer, result, costs)
+        return DemoDecision.evaluate(offer, result, costs, ZoneRiskStore.read(this))
     }
 
     private fun captureWindowTree(
